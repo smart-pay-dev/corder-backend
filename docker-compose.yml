@@ -1,0 +1,47 @@
+# Üretim: yalnızca API dışarı açılır. PostgreSQL yalnızca Docker ağı içinde (5432 host’ta yok).
+# Yerelde DB’ye host’tan bağlanmak için: docker compose -f docker-compose.dev.yml up -d
+
+services:
+  api:
+    build: .
+    ports:
+      - "${PORT:-4000}:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-corder}
+      DB_PASSWORD: ${DB_PASSWORD:-corder_secret}
+      DB_NAME: ${DB_NAME:-corder}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET}
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      SKIP_MIGRATIONS_ON_START: ${SKIP_MIGRATIONS_ON_START:-}
+    volumes:
+      - api_uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-corder}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-corder_secret}
+      POSTGRES_DB: ${DB_NAME:-corder}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-corder} -d ${DB_NAME:-corder}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  api_uploads:

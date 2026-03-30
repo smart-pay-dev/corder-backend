@@ -1,0 +1,39 @@
+import { IsString, IsOptional, IsIn, MinLength, IsEmail } from 'class-validator';
+
+export class UpdateRestaurantDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  slug?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsIn(['active', 'inactive'])
+  status?: 'active' | 'inactive';
+
+  /** Terminal girişi (root admin'den bağımsız). */
+  @IsOptional()
+  @IsEmail()
+  terminalEmail?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(4, { message: 'Terminal parola en az 4 karakter olmalı' })
+  terminalPassword?: string;
+}
