@@ -5,6 +5,7 @@ import { DatabaseConfig } from './common/database/database.config';
 import { PlatformModule } from './platform/platform.module';
 import { RestaurantModule } from './restaurant/restaurant.module';
 import { MenuModule } from './menu/menu.module';
+import { HealthController } from './health/health.controller';
 
 @Module({
   imports: [
@@ -14,5 +15,6 @@ import { MenuModule } from './menu/menu.module';
     RestaurantModule,
     MenuModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}
