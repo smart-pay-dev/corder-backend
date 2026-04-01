@@ -43,7 +43,7 @@ export class CampaignService {
       validUntil: dto.validUntil ?? null,
       isActive: dto.isActive ?? true,
       order: count + 1,
-    });
+    } as Partial<CampaignEntity>);
     return this.repo.save(entity);
   }
 
