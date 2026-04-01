@@ -15,6 +15,7 @@ import { CashShiftEntity } from './domain/cash-shift.entity';
 import { CashTransactionEntity } from './domain/cash-transaction.entity';
 import { OpenAccountEntity } from './domain/open-account.entity';
 import { CompletedOrderEntity } from './domain/completed-order.entity';
+import { CampaignEntity } from './domain/campaign.entity';
 import { RestaurantAuthService } from './application/restaurant-auth.service';
 import { CashShiftService } from './application/cash-shift.service';
 import { CashTransactionsService } from './application/cash-transactions.service';
@@ -25,6 +26,7 @@ import { OrderService } from './application/order.service';
 import { CategoryService } from './application/category.service';
 import { ProductService } from './application/product.service';
 import { CompletedOrdersService } from './application/completed-orders.service';
+import { CampaignService } from './application/campaign.service';
 import { RestaurantAuthController } from './api/restaurant-auth.controller';
 import { TablesController } from './api/tables.controller';
 import { OrdersController } from './api/orders.controller';
@@ -36,6 +38,7 @@ import { ShiftsController } from './api/shifts.controller';
 import { CompletedOrdersController } from './api/completed-orders.controller';
 import { CashTransactionsController } from './api/cash-transactions.controller';
 import { OpenAccountsController } from './api/open-accounts.controller';
+import { CampaignsController } from './api/campaigns.controller';
 import { OrdersGateway } from './api/orders.gateway';
 import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy';
 
@@ -54,6 +57,7 @@ import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy'
       CashTransactionEntity,
       OpenAccountEntity,
       CompletedOrderEntity,
+      CampaignEntity,
     ]),
     PassportModule.register({ defaultStrategy: 'restaurant-jwt' }),
     JwtModule.registerAsync({
@@ -77,6 +81,7 @@ import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy'
     CompletedOrdersController,
     CashTransactionsController,
     OpenAccountsController,
+    CampaignsController,
   ],
   providers: [
     RestaurantAuthService,
@@ -88,6 +93,7 @@ import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy'
     CashShiftService,
     CashTransactionsService,
     OpenAccountsService,
+    CampaignService,
     CompletedOrdersService,
     RestaurantJwtStrategy,
     OrdersGateway,
