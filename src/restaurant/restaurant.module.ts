@@ -21,6 +21,9 @@ import { SupplierEntity } from './domain/supplier.entity';
 import { StockMovementEntity } from './domain/stock-movement.entity';
 import { PurchaseOrderEntity } from './domain/purchase-order.entity';
 import { InventoryCountEntity } from './domain/inventory-count.entity';
+import { PrinterConfigEntity } from './domain/printer-config.entity';
+import { AuditLogEntity } from './domain/audit-log.entity';
+import { BackupRecordEntity } from './domain/backup-record.entity';
 import { RestaurantAuthService } from './application/restaurant-auth.service';
 import { CashShiftService } from './application/cash-shift.service';
 import { CashTransactionsService } from './application/cash-transactions.service';
@@ -37,6 +40,9 @@ import { SuppliersService } from './application/suppliers.service';
 import { StockMovementsService } from './application/stock-movements.service';
 import { PurchaseOrdersService } from './application/purchase-orders.service';
 import { InventoryCountsService } from './application/inventory-counts.service';
+import { PrintersService } from './application/printers.service';
+import { AuditLogsService } from './application/audit-logs.service';
+import { BackupsService } from './application/backups.service';
 import { RestaurantAuthController } from './api/restaurant-auth.controller';
 import { TablesController } from './api/tables.controller';
 import { OrdersController } from './api/orders.controller';
@@ -50,6 +56,7 @@ import { CashTransactionsController } from './api/cash-transactions.controller';
 import { OpenAccountsController } from './api/open-accounts.controller';
 import { CampaignsController } from './api/campaigns.controller';
 import { StockController } from './api/stock.controller';
+import { TechnicalController } from './api/technical.controller';
 import { OrdersGateway } from './api/orders.gateway';
 import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy';
 
@@ -74,6 +81,9 @@ import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy'
       StockMovementEntity,
       PurchaseOrderEntity,
       InventoryCountEntity,
+      PrinterConfigEntity,
+      AuditLogEntity,
+      BackupRecordEntity,
     ]),
     PassportModule.register({ defaultStrategy: 'restaurant-jwt' }),
     JwtModule.registerAsync({
@@ -99,6 +109,7 @@ import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy'
     OpenAccountsController,
     CampaignsController,
     StockController,
+    TechnicalController,
   ],
   providers: [
     RestaurantAuthService,
@@ -119,6 +130,9 @@ import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy'
     StockMovementsService,
     PurchaseOrdersService,
     InventoryCountsService,
+    PrintersService,
+    AuditLogsService,
+    BackupsService,
   ],
   exports: [RestaurantAuthService, TableService, OrderService, CategoryService, ProductService, CashShiftService],
 })
