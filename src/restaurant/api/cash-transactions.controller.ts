@@ -53,14 +53,15 @@ export class CashTransactionsController {
     };
   }
 
-  @Get('current-shift')
-  async listForCurrentShift(
+  @Get()
+  async list(
     @RestaurantId() restaurantId: string,
     @Query('shiftId') shiftId?: string,
   ) {
-    const id = shiftId;
-    if (!id) return [];
-    return this.service.listForShift(restaurantId, id);
+    if (shiftId) {
+      return this.service.listForShift(restaurantId, shiftId);
+    }
+    return this.service.listForCurrentShift(restaurantId);
   }
 }
 

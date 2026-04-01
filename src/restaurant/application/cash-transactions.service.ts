@@ -50,5 +50,10 @@ export class CashTransactionsService {
       order: { createdAt: 'DESC' },
     });
   }
+
+  async listForCurrentShift(restaurantId: string) {
+    const shift = await this.shifts.requireCurrent(restaurantId);
+    return this.listForShift(restaurantId, shift.id);
+  }
 }
 
