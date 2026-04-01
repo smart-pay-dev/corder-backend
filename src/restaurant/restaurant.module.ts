@@ -16,6 +16,11 @@ import { CashTransactionEntity } from './domain/cash-transaction.entity';
 import { OpenAccountEntity } from './domain/open-account.entity';
 import { CompletedOrderEntity } from './domain/completed-order.entity';
 import { CampaignEntity } from './domain/campaign.entity';
+import { StockMaterialEntity } from './domain/stock-material.entity';
+import { SupplierEntity } from './domain/supplier.entity';
+import { StockMovementEntity } from './domain/stock-movement.entity';
+import { PurchaseOrderEntity } from './domain/purchase-order.entity';
+import { InventoryCountEntity } from './domain/inventory-count.entity';
 import { RestaurantAuthService } from './application/restaurant-auth.service';
 import { CashShiftService } from './application/cash-shift.service';
 import { CashTransactionsService } from './application/cash-transactions.service';
@@ -27,6 +32,11 @@ import { CategoryService } from './application/category.service';
 import { ProductService } from './application/product.service';
 import { CompletedOrdersService } from './application/completed-orders.service';
 import { CampaignService } from './application/campaign.service';
+import { StockMaterialsService } from './application/stock-materials.service';
+import { SuppliersService } from './application/suppliers.service';
+import { StockMovementsService } from './application/stock-movements.service';
+import { PurchaseOrdersService } from './application/purchase-orders.service';
+import { InventoryCountsService } from './application/inventory-counts.service';
 import { RestaurantAuthController } from './api/restaurant-auth.controller';
 import { TablesController } from './api/tables.controller';
 import { OrdersController } from './api/orders.controller';
@@ -39,6 +49,7 @@ import { CompletedOrdersController } from './api/completed-orders.controller';
 import { CashTransactionsController } from './api/cash-transactions.controller';
 import { OpenAccountsController } from './api/open-accounts.controller';
 import { CampaignsController } from './api/campaigns.controller';
+import { StockController } from './api/stock.controller';
 import { OrdersGateway } from './api/orders.gateway';
 import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy';
 
@@ -58,6 +69,11 @@ import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy'
       OpenAccountEntity,
       CompletedOrderEntity,
       CampaignEntity,
+      StockMaterialEntity,
+      SupplierEntity,
+      StockMovementEntity,
+      PurchaseOrderEntity,
+      InventoryCountEntity,
     ]),
     PassportModule.register({ defaultStrategy: 'restaurant-jwt' }),
     JwtModule.registerAsync({
@@ -82,6 +98,7 @@ import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy'
     CashTransactionsController,
     OpenAccountsController,
     CampaignsController,
+    StockController,
   ],
   providers: [
     RestaurantAuthService,
@@ -97,6 +114,11 @@ import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy'
     CompletedOrdersService,
     RestaurantJwtStrategy,
     OrdersGateway,
+    StockMaterialsService,
+    SuppliersService,
+    StockMovementsService,
+    PurchaseOrdersService,
+    InventoryCountsService,
   ],
   exports: [RestaurantAuthService, TableService, OrderService, CategoryService, ProductService, CashShiftService],
 })
