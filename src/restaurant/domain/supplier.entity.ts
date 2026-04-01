@@ -7,7 +7,7 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { RestaurantEntity } from '../platform/domain/restaurant.entity';
+import { RestaurantEntity } from '../../platform/domain/restaurant.entity';
 
 @Entity('suppliers')
 @Index(['restaurantId', 'name'])
