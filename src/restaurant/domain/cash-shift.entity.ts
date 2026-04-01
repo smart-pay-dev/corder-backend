@@ -38,12 +38,36 @@ export class CashShiftEntity {
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'open' })
   status: string;
 
-  @Column({ name: 'opening_balance', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ name: 'opening_balance', type: 'numeric', precision: 12, scale: 2, default: 0 })
   openingBalance: number;
 
-  @Column({ name: 'closing_balance', type: 'decimal', precision: 12, scale: 2, nullable: true })
+  @Column({ name: 'closing_balance', type: 'numeric', precision: 12, scale: 2, nullable: true })
   closingBalance: number | null;
 
   @Column({ name: 'notes', type: 'text', nullable: true })
   notes: string | null;
+
+  @Column({ name: 'cash_in', type: 'numeric', precision: 12, scale: 2, default: 0 })
+  cashIn: number;
+
+  @Column({ name: 'cash_out', type: 'numeric', precision: 12, scale: 2, default: 0 })
+  cashOut: number;
+
+  @Column({ name: 'total_revenue', type: 'numeric', precision: 12, scale: 2, default: 0 })
+  totalRevenue: number;
+
+  @Column({ name: 'total_nakit', type: 'numeric', precision: 12, scale: 2, default: 0 })
+  totalNakit: number;
+
+  @Column({ name: 'total_kart', type: 'numeric', precision: 12, scale: 2, default: 0 })
+  totalKart: number;
+
+  @Column({ name: 'total_yemek_karti', type: 'numeric', precision: 12, scale: 2, default: 0 })
+  totalYemekKarti: number;
+
+  @Column({ name: 'total_multinet', type: 'numeric', precision: 12, scale: 2, default: 0 })
+  totalMultinet: number;
+
+  @Column({ name: 'transaction_count', type: 'integer', default: 0 })
+  transactionCount: number;
 }
