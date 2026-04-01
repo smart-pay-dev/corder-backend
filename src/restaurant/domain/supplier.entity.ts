@@ -25,16 +25,16 @@ export class SupplierEntity {
   @Column()
   name: string;
 
-  @Column({ name: 'contact_person', nullable: true })
+  @Column({ name: 'contact_person', type: 'varchar', length: 255, nullable: true })
   contactPerson: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', length: 64, nullable: true })
   phone: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   email: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   address: string | null;
 
   @Column({ type: 'text', nullable: true })
