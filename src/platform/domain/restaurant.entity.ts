@@ -30,6 +30,24 @@ export class RestaurantEntity {
   @Column({ default: 'active' })
   status: string;
 
+  @Column({ name: 'tax_id', type: 'varchar', nullable: true })
+  taxId: string | null;
+
+  @Column({ name: 'whatsapp', type: 'varchar', nullable: true })
+  whatsapp: string | null;
+
+  @Column({ name: 'instagram', type: 'varchar', nullable: true })
+  instagram: string | null;
+
+  @Column({ name: 'facebook', type: 'varchar', nullable: true })
+  facebook: string | null;
+
+  @Column({ name: 'website', type: 'varchar', nullable: true })
+  website: string | null;
+
+  @Column({ name: 'working_hours', type: 'varchar', nullable: true })
+  workingHours: string | null;
+
   @Column({ name: 'root_admin_id', type: 'uuid', nullable: true })
   rootAdminId: string | null;
 

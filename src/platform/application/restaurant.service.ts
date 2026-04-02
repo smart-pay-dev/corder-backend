@@ -53,6 +53,12 @@ export class RestaurantService {
     if (dto.phone !== undefined) entity.phone = dto.phone;
     if (dto.email !== undefined) entity.email = dto.email;
     if (dto.status !== undefined) entity.status = dto.status;
+    if (dto.taxId !== undefined) entity.taxId = dto.taxId ?? null;
+    if (dto.whatsapp !== undefined) entity.whatsapp = dto.whatsapp ?? null;
+    if (dto.instagram !== undefined) entity.instagram = dto.instagram ?? null;
+    if (dto.facebook !== undefined) entity.facebook = dto.facebook ?? null;
+    if (dto.website !== undefined) entity.website = dto.website ?? null;
+    if (dto.workingHours !== undefined) entity.workingHours = dto.workingHours ?? null;
     if (dto.terminalEmail !== undefined) entity.terminalEmail = dto.terminalEmail?.trim() || null;
     if (dto.terminalPassword !== undefined && dto.terminalPassword.length > 0) {
       entity.terminalPasswordHash = await bcrypt.hash(dto.terminalPassword, 10);

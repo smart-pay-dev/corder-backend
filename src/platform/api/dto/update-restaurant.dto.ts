@@ -21,6 +21,30 @@ export class UpdateRestaurantDto {
 
   @IsOptional()
   @IsString()
+  taxId?: string;
+
+  @IsOptional()
+  @IsString()
+  whatsapp?: string;
+
+  @IsOptional()
+  @IsString()
+  instagram?: string;
+
+  @IsOptional()
+  @IsString()
+  facebook?: string;
+
+  @IsOptional()
+  @IsString()
+  website?: string;
+
+  @IsOptional()
+  @IsString()
+  workingHours?: string;
+
+  @IsOptional()
+  @IsString()
   email?: string;
 
   @IsOptional()

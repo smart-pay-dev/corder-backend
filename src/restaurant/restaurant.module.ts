@@ -40,6 +40,7 @@ import { SuppliersService } from './application/suppliers.service';
 import { StockMovementsService } from './application/stock-movements.service';
 import { PurchaseOrdersService } from './application/purchase-orders.service';
 import { InventoryCountsService } from './application/inventory-counts.service';
+import { RestaurantSettingsService } from './application/restaurant-settings.service';
 import { PrintersService } from './application/printers.service';
 import { AuditLogsService } from './application/audit-logs.service';
 import { BackupsService } from './application/backups.service';
@@ -57,6 +58,7 @@ import { OpenAccountsController } from './api/open-accounts.controller';
 import { CampaignsController } from './api/campaigns.controller';
 import { StockController } from './api/stock.controller';
 import { TechnicalController } from './api/technical.controller';
+import { RestaurantSettingsController } from './api/restaurant-settings.controller';
 import { OrdersGateway } from './api/orders.gateway';
 import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy';
 
@@ -110,6 +112,7 @@ import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy'
     CampaignsController,
     StockController,
     TechnicalController,
+    RestaurantSettingsController,
   ],
   providers: [
     RestaurantAuthService,
@@ -130,6 +133,7 @@ import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy'
     StockMovementsService,
     PurchaseOrdersService,
     InventoryCountsService,
+    RestaurantSettingsService,
     PrintersService,
     AuditLogsService,
     BackupsService,
