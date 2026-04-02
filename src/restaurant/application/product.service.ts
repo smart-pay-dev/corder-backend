@@ -68,4 +68,22 @@ export class ProductService {
     const entity = await this.findOne(id, restaurantId);
     await this.repo.remove(entity);
   }
+
+  async reorder(restaurantId: string, ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    // Ensure products belong to this restaurant via category join
+    const products = await this.repo
+      .createQueryBuilder('p')
+      .innerJoin('p.category', 'c')
+      .where('c.restaurant_id = :restaurantId', { restaurantId })
+      .andWhere('p.id IN (:...ids)', { ids })
+      .getMany();
+    const existingIds = new Set(products.map((p) => p.id));
+    const orderedIds = ids.filter((id) => existingIds.has(id));
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        this.repo.update({ id }, { order: index + 1 }),
+      ),
+    );
+  }
 }

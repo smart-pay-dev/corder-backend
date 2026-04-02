@@ -38,4 +38,12 @@ export class CategoriesController {
   remove(@Param('id') id: string, @RestaurantId() restaurantId: string) {
     return this.service.remove(id, restaurantId);
   }
+
+  @Post('reorder')
+  reorder(
+    @RestaurantId() restaurantId: string,
+    @Body() body: { ids: string[] },
+  ) {
+    return this.service.reorder(restaurantId, body.ids ?? []);
+  }
 }

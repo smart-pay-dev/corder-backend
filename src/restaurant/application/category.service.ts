@@ -76,4 +76,16 @@ export class CategoryService {
     const entity = await this.findOne(id, restaurantId);
     await this.repo.remove(entity);
   }
+
+  async reorder(restaurantId: string, ids: string[]): Promise<void> {
+    // ids is the new order (0-based -> 1-based in DB)
+    await Promise.all(
+      ids.map((id, index) =>
+        this.repo.update(
+          { id, restaurantId },
+          { order: index + 1 },
+        ),
+      ),
+    );
+  }
 }
