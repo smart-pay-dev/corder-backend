@@ -7,27 +7,31 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { extname } from 'path';
+import { randomBytes } from 'crypto';
+import { writeFile } from 'fs/promises';
+import { join } from 'path';
 import { RestaurantJwtGuard } from '../infrastructure/restaurant-jwt.guard';
+import { R2UploadService } from '../infrastructure/r2-upload.service';
 
-const uploadsDir = process.cwd() + '/uploads';
+const uploadsDir = () => join(process.cwd(), 'uploads');
 
-export const uploadStorage = diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}${extname(file.originalname) || '.bin'}`;
-    cb(null, suffix);
-  },
-});
+function buildObjectKey(originalName: string): string {
+  const ext = extname(originalName) || '.bin';
+  const suffix = `${Date.now()}-${randomBytes(4).toString('hex')}${ext}`;
+  return `menu/${suffix}`;
+}
 
 @Controller('restaurant/upload')
 @UseGuards(RestaurantJwtGuard)
 export class UploadController {
+  constructor(private readonly r2: R2UploadService) {}
+
   @Post()
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: uploadStorage,
+      storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
         const allowed = /^image\/(jpeg|png|gif|webp)$/i.test(file.mimetype);
@@ -36,8 +40,19 @@ export class UploadController {
       },
     }),
   )
-  upload(@UploadedFile() file: Express.Multer.File) {
-    if (!file) throw new BadRequestException('No file uploaded');
-    return { url: `/uploads/${file.filename}` };
+  async upload(@UploadedFile() file: Express.Multer.File) {
+    if (!file?.buffer?.length) throw new BadRequestException('No file uploaded');
+
+    const key = buildObjectKey(file.originalname);
+
+    if (this.r2.isConfigured()) {
+      const url = await this.r2.putObject(key, file.buffer, file.mimetype);
+      return { url };
+    }
+
+    const filename = key.replace(/^menu\//, '');
+    const dest = join(uploadsDir(), filename);
+    await writeFile(dest, file.buffer);
+    return { url: `/uploads/${filename}` };
   }
 }

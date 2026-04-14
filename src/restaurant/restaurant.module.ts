@@ -61,6 +61,7 @@ import { TechnicalController } from './api/technical.controller';
 import { RestaurantSettingsController } from './api/restaurant-settings.controller';
 import { OrdersGateway } from './api/orders.gateway';
 import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy';
+import { R2UploadService } from './infrastructure/r2-upload.service';
 
 @Module({
   imports: [
@@ -137,6 +138,7 @@ import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy'
     PrintersService,
     AuditLogsService,
     BackupsService,
+    R2UploadService,
   ],
   exports: [RestaurantAuthService, TableService, OrderService, CategoryService, ProductService, CashShiftService],
 })
