@@ -18,6 +18,7 @@ export class RestaurantJwtStrategy extends PassportStrategy(Strategy, 'restauran
     if (payload.type !== 'restaurant') throw new UnauthorizedException();
     return {
       restaurantId: payload.restaurantId,
+      slug: payload.slug,
       sub: payload.sub,
       email: payload.email,
       name: payload.name ?? payload.email,

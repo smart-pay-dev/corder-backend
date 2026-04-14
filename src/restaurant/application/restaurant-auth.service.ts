@@ -17,6 +17,8 @@ export type RestaurantUserRole = 'root' | 'mudur' | 'kasiyer' | 'garson';
 export interface RestaurantTokenPayload {
   sub: string;
   restaurantId: string;
+  /** URL-safe; used for R2 /uploads paths. Eski tokenlarda olmayabilir. */
+  slug?: string;
   email: string;
   name: string;
   type: 'restaurant';
@@ -47,6 +49,7 @@ export class RestaurantAuthService {
         const payload: RestaurantTokenPayload = {
           sub: admin.id,
           restaurantId: admin.restaurant.id,
+          slug: admin.restaurant.slug,
           email: admin.email,
           name: admin.name,
           type: 'restaurant',
@@ -69,6 +72,7 @@ export class RestaurantAuthService {
       const payload: RestaurantTokenPayload = {
         sub: restaurant.id,
         restaurantId: restaurant.id,
+        slug: restaurant.slug,
         email: restaurant.terminalEmail!,
         name: 'Terminal',
         type: 'restaurant',

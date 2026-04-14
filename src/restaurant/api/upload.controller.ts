@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Req,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -13,17 +14,35 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { extname } from 'path';
 import { randomBytes } from 'crypto';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
+import { mkdir, writeFile } from 'fs/promises';
+import { dirname, join } from 'path';
+import type { Request } from 'express';
 import { RestaurantJwtGuard } from '../infrastructure/restaurant-jwt.guard';
 import { R2UploadService } from '../infrastructure/r2-upload.service';
 
 const uploadsDir = () => join(process.cwd(), 'uploads');
 
-function buildObjectKey(originalName: string): string {
+type RestaurantUser = { restaurantId: string; slug?: string };
+
+function sanitizeTenantSegment(slug: string): string {
+  const s = slug
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return (s || 'restoran').slice(0, 80);
+}
+
+function tenantPrefix(user: RestaurantUser): string {
+  if (user.slug?.trim()) return sanitizeTenantSegment(user.slug);
+  return user.restaurantId;
+}
+
+function buildObjectKey(tenant: string, originalName: string): string {
   const ext = extname(originalName) || '.bin';
   const suffix = `${Date.now()}-${randomBytes(4).toString('hex')}${ext}`;
-  return `menu/${suffix}`;
+  return `${tenant}/menu/${suffix}`;
 }
 
 @Controller('restaurant/upload')
@@ -45,10 +64,11 @@ export class UploadController {
       },
     }),
   )
-  async upload(@UploadedFile() file: Express.Multer.File) {
+  async upload(@Req() req: Request & { user: RestaurantUser }, @UploadedFile() file: Express.Multer.File) {
     if (!file?.buffer?.length) throw new BadRequestException('No file uploaded');
 
-    const key = buildObjectKey(file.originalname);
+    const tenant = tenantPrefix(req.user);
+    const key = buildObjectKey(tenant, file.originalname);
 
     if (this.r2.isConfigured()) {
       try {
@@ -77,14 +97,14 @@ export class UploadController {
       }
     }
 
-    const filename = key.replace(/^menu\//, '');
-    const dest = join(uploadsDir(), filename);
+    const dest = join(uploadsDir(), key);
     try {
+      await mkdir(dirname(dest), { recursive: true });
       await writeFile(dest, file.buffer);
     } catch (err) {
       this.logger.error('Local upload write failed', err instanceof Error ? err.stack : err);
       throw new InternalServerErrorException('Dosya diske yazilamadi');
     }
-    return { url: `/uploads/${filename}` };
+    return { url: `/uploads/${key}` };
   }
 }
