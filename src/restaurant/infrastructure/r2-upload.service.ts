@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 @Injectable()
-export class R2UploadService {
+export class R2UploadService implements OnModuleInit {
+  private readonly logger = new Logger(R2UploadService.name);
   private readonly client: S3Client | null;
   private readonly bucket: string | null;
   private readonly publicBase: string | null;
@@ -32,6 +33,16 @@ export class R2UploadService {
       this.client = null;
       this.bucket = null;
       this.publicBase = null;
+    }
+  }
+
+  onModuleInit() {
+    if (this.client && this.bucket) {
+      this.logger.log(`R2 upload enabled (bucket=${this.bucket})`);
+    } else {
+      this.logger.warn(
+        'R2 upload disabled: set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_BASE_URL (docker-compose api.environment must list them). Falling back to local /uploads.',
+      );
     }
   }
 

@@ -5,6 +5,8 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ForbiddenException,
+  InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -52,15 +54,37 @@ export class UploadController {
       try {
         const url = await this.r2.putObject(key, file.buffer, file.mimetype);
         return { url };
-      } catch (err) {
+      } catch (err: unknown) {
         this.logger.error('R2 upload failed', err instanceof Error ? err.stack : err);
-        throw err;
+        const e = err as { name?: string; message?: string };
+        const name = e.name ?? '';
+        const msg = e.message ?? '';
+        if (name === 'AccessDenied' || /access denied/i.test(msg)) {
+          throw new ForbiddenException(
+            'R2 erisim reddedildi: API token bu bucket icin Object Read & Write olmali (corder-uploads).',
+          );
+        }
+        if (name === 'InvalidAccessKeyId' || name === 'SignatureDoesNotMatch') {
+          throw new BadRequestException('R2 anahtarlari gecersiz veya yanlis; ACCESS_KEY / SECRET kontrol edin.');
+        }
+        if (name === 'NoSuchBucket' || /no such bucket/i.test(msg)) {
+          throw new BadRequestException('R2 bucket bulunamadi: R2_BUCKET_NAME ve hesap eslesiyor mu?');
+        }
+        if (process.env.UPLOAD_DEBUG === 'true') {
+          throw new InternalServerErrorException(`${name}: ${msg}`);
+        }
+        throw new InternalServerErrorException('Dosya yuklenemedi');
       }
     }
 
     const filename = key.replace(/^menu\//, '');
     const dest = join(uploadsDir(), filename);
-    await writeFile(dest, file.buffer);
+    try {
+      await writeFile(dest, file.buffer);
+    } catch (err) {
+      this.logger.error('Local upload write failed', err instanceof Error ? err.stack : err);
+      throw new InternalServerErrorException('Dosya diske yazilamadi');
+    }
     return { url: `/uploads/${filename}` };
   }
 }
