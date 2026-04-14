@@ -5,6 +5,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -26,6 +27,8 @@ function buildObjectKey(originalName: string): string {
 @Controller('restaurant/upload')
 @UseGuards(RestaurantJwtGuard)
 export class UploadController {
+  private readonly logger = new Logger(UploadController.name);
+
   constructor(private readonly r2: R2UploadService) {}
 
   @Post()
@@ -46,8 +49,13 @@ export class UploadController {
     const key = buildObjectKey(file.originalname);
 
     if (this.r2.isConfigured()) {
-      const url = await this.r2.putObject(key, file.buffer, file.mimetype);
-      return { url };
+      try {
+        const url = await this.r2.putObject(key, file.buffer, file.mimetype);
+        return { url };
+      } catch (err) {
+        this.logger.error('R2 upload failed', err instanceof Error ? err.stack : err);
+        throw err;
+      }
     }
 
     const filename = key.replace(/^menu\//, '');

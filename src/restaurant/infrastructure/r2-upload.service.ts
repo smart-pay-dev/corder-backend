@@ -16,10 +16,15 @@ export class R2UploadService {
     const publicBase = this.config.get<string>('R2_PUBLIC_BASE_URL')?.trim()?.replace(/\/$/, '');
 
     if (accountId && accessKeyId && secretAccessKey && bucket && publicBase) {
+      // R2 is not fully compatible with SDK default checksum behavior (WHEN_SUPPORTED);
+      // uploads can fail with 5xx from R2. See Cloudflare community + AWS data-integrity notes.
       this.client = new S3Client({
         region: 'auto',
         endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
         credentials: { accessKeyId, secretAccessKey },
+        forcePathStyle: true,
+        requestChecksumCalculation: 'WHEN_REQUIRED',
+        responseChecksumValidation: 'WHEN_REQUIRED',
       });
       this.bucket = bucket;
       this.publicBase = publicBase;
