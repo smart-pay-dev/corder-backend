@@ -8,7 +8,10 @@ import { Server } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { RestaurantTokenPayload } from '../application/restaurant-auth.service';
+import { RestaurantEntity } from '../../platform/domain/restaurant.entity';
 
 function getRestaurantRoom(restaurantId: string) {
   return `restaurant:${restaurantId}`;
@@ -26,9 +29,11 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    @InjectRepository(RestaurantEntity)
+    private readonly restaurantRepo: Repository<RestaurantEntity>,
   ) {}
 
-  handleConnection(client: import('socket.io').Socket) {
+  async handleConnection(client: import('socket.io').Socket) {
     const token =
       client.handshake.auth?.token || client.handshake.headers?.authorization?.replace?.('Bearer ', '');
     if (!token) {
@@ -43,10 +48,21 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
       client.data.restaurantId = payload.restaurantId;
+      client.data.authType = 'jwt';
       client.join(getRestaurantRoom(payload.restaurantId));
+      return;
     } catch {
-      client.disconnect(true);
+      // JWT değilse statik print-agent token kontrolüne düş.
     }
+
+    const restaurant = await this.restaurantRepo.findOne({ where: { printAgentToken: token } });
+    if (!restaurant) {
+      client.disconnect(true);
+      return;
+    }
+    client.data.restaurantId = restaurant.id;
+    client.data.authType = 'print-agent-token';
+    client.join(getRestaurantRoom(restaurant.id));
   }
 
   handleDisconnect(_client: import('socket.io').Socket) {}

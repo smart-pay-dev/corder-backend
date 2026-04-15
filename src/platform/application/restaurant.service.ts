@@ -31,9 +31,15 @@ export class RestaurantService {
     const slug = dto.slug.toLowerCase().trim();
     const existing = await this.repo.findOne({ where: { slug } });
     if (existing) throw new ConflictException('Slug already in use');
+    const printAgentToken = dto.printAgentToken?.trim() || null;
+    if (printAgentToken) {
+      const tokenOwner = await this.repo.findOne({ where: { printAgentToken } });
+      if (tokenOwner) throw new ConflictException('Print agent token already in use');
+    }
     const entity = this.repo.create({
       ...dto,
       slug,
+      printAgentToken,
     });
     return this.repo.save(entity);
   }
@@ -62,6 +68,16 @@ export class RestaurantService {
     if (dto.terminalEmail !== undefined) entity.terminalEmail = dto.terminalEmail?.trim() || null;
     if (dto.terminalPassword !== undefined && dto.terminalPassword.length > 0) {
       entity.terminalPasswordHash = await bcrypt.hash(dto.terminalPassword, 10);
+    }
+    if (dto.printAgentToken !== undefined) {
+      const token = dto.printAgentToken?.trim() || null;
+      if (token && token !== entity.printAgentToken) {
+        const tokenOwner = await this.repo.findOne({ where: { printAgentToken: token } });
+        if (tokenOwner && tokenOwner.id !== entity.id) {
+          throw new ConflictException('Print agent token already in use');
+        }
+      }
+      entity.printAgentToken = token;
     }
     return this.repo.save(entity);
   }

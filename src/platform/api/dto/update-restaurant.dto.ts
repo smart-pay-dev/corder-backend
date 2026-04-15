@@ -60,4 +60,9 @@ export class UpdateRestaurantDto {
   @IsString()
   @MinLength(4, { message: 'Terminal parola en az 4 karakter olmalı' })
   terminalPassword?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(12, { message: 'Print agent token en az 12 karakter olmalı' })
+  printAgentToken?: string | null;
 }

@@ -90,4 +90,5 @@ export class RestaurantAuthService {
 
     throw new UnauthorizedException('Invalid email or password');
   }
+
 }

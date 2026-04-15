@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OrderEntity } from '../domain/order.entity';
 import { OrderItemEntity } from '../domain/order-item.entity';
+import { TableEntity } from '../domain/table.entity';
+import { RestaurantStaffEntity } from '../domain/restaurant-staff.entity';
 import { CreateOrderDto } from '../api/dto/create-order.dto';
 import { OrdersGateway } from '../api/orders.gateway';
 import { CashShiftService } from './cash-shift.service';
@@ -14,6 +16,10 @@ export class OrderService {
     private readonly orderRepo: Repository<OrderEntity>,
     @InjectRepository(OrderItemEntity)
     private readonly itemRepo: Repository<OrderItemEntity>,
+    @InjectRepository(TableEntity)
+    private readonly tableRepo: Repository<TableEntity>,
+    @InjectRepository(RestaurantStaffEntity)
+    private readonly staffRepo: Repository<RestaurantStaffEntity>,
     private readonly ordersGateway: OrdersGateway,
     private readonly cashShiftService: CashShiftService,
   ) {}
@@ -60,7 +66,15 @@ export class OrderService {
     );
     await this.itemRepo.save(items);
     const created = await this.findOne(saved.id, restaurantId);
-    const payload = JSON.parse(JSON.stringify(created));
+    const [table, waiter] = await Promise.all([
+      this.tableRepo.findOne({ where: { id: dto.tableId, restaurantId } }),
+      dto.userId ? this.staffRepo.findOne({ where: { id: dto.userId, restaurantId } }) : Promise.resolve(null),
+    ]);
+    const payload = {
+      ...JSON.parse(JSON.stringify(created)),
+      tableName: table?.name ?? null,
+      waiterName: waiter?.name ?? null,
+    };
     this.ordersGateway.emitOrderCreated(restaurantId, payload);
     return created;
   }

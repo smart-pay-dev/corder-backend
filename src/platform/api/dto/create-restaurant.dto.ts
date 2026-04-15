@@ -24,4 +24,9 @@ export class CreateRestaurantDto {
   @IsOptional()
   @IsIn(['active', 'inactive'])
   status?: 'active' | 'inactive';
+
+  @IsOptional()
+  @IsString()
+  @MinLength(12)
+  printAgentToken?: string;
 }

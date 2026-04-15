@@ -8,6 +8,7 @@ import {
 
 @Entity('restaurants')
 @Index(['terminalEmail'])
+@Index(['printAgentToken'], { unique: true })
 export class RestaurantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -57,6 +58,10 @@ export class RestaurantEntity {
 
   @Column({ name: 'terminal_password_hash', type: 'varchar', nullable: true })
   terminalPasswordHash: string | null;
+
+  /** Print-agent için restoran bazlı statik token (Socket.IO auth). */
+  @Column({ name: 'print_agent_token', type: 'varchar', length: 128, nullable: true })
+  printAgentToken: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
