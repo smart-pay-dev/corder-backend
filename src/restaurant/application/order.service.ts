@@ -121,6 +121,16 @@ export class OrderService {
     toTableId: string,
   ): Promise<{ moved: number }> {
     if (fromTableId === toTableId) return { moved: 0 };
+    const [fromTable, toTable] = await Promise.all([
+      this.tableRepo.findOne({ where: { id: fromTableId, restaurantId } }),
+      this.tableRepo.findOne({ where: { id: toTableId, restaurantId } }),
+    ]);
+    if (!fromTable || !toTable) {
+      throw new NotFoundException('Table not found');
+    }
+    if (fromTable.status === 'checkout' || toTable.status === 'checkout') {
+      throw new BadRequestException('Hesap kesimindeki masa tasinamaz');
+    }
     const result = await this.orderRepo.update(
       { restaurantId, tableId: fromTableId, status: 'active' },
       { tableId: toTableId },
