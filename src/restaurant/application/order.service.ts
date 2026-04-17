@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { OrderEntity } from '../domain/order.entity';
 import { OrderItemEntity } from '../domain/order-item.entity';
 import { TableEntity } from '../domain/table.entity';
@@ -177,5 +177,47 @@ export class OrderService {
     });
 
     return { ok: true, jobId };
+  }
+
+  /** Print-agent HTTP: WebSocket kaçırsa bile mutfak fişi buradan tamamlanır. */
+  async findPendingKitchenPrints(restaurantId: string): Promise<Record<string, unknown>[]> {
+    const orders = await this.orderRepo.find({
+      where: {
+        restaurantId,
+        status: 'active',
+        kitchenTicketPrintedAt: IsNull(),
+      },
+      relations: ['items', 'table'],
+      order: { createdAt: 'ASC' },
+      take: 100,
+    });
+
+    const out: Record<string, unknown>[] = [];
+    for (const o of orders) {
+      const items = o.items?.filter((i) => i.status !== 'cancelled') ?? [];
+      if (!items.length) continue;
+      const waiter = o.userId
+        ? await this.staffRepo.findOne({ where: { id: o.userId, restaurantId } })
+        : null;
+      const snapshot = { ...o, items };
+      out.push({
+        ...JSON.parse(JSON.stringify(snapshot)),
+        restaurantId,
+        tableName: o.table?.name ?? null,
+        waiterName: waiter?.name ?? null,
+      });
+    }
+    return out;
+  }
+
+  async markKitchenTicketPrinted(restaurantId: string, orderId: string): Promise<{ ok: true }> {
+    const res = await this.orderRepo.update(
+      { id: orderId, restaurantId, status: 'active' },
+      { kitchenTicketPrintedAt: new Date() },
+    );
+    if (!res.affected) {
+      throw new NotFoundException('Sipariş bulunamadı veya kapatılmış');
+    }
+    return { ok: true };
   }
 }

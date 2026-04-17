@@ -48,4 +48,8 @@ export class OrderEntity {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  /** Mutfak fişi yazdırıldı (print-agent HTTP ack); null = hâlâ mutfak kuyruğunda sayılır. */
+  @Column({ name: 'kitchen_ticket_printed_at', type: 'timestamptz', nullable: true })
+  kitchenTicketPrintedAt: Date | null;
 }

@@ -60,6 +60,8 @@ import { StockController } from './api/stock.controller';
 import { TechnicalController } from './api/technical.controller';
 import { RestaurantSettingsController } from './api/restaurant-settings.controller';
 import { OrdersGateway } from './api/orders.gateway';
+import { PrintAgentController } from './api/print-agent.controller';
+import { PrintAgentGuard } from './infrastructure/print-agent.guard';
 import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy';
 import { R2UploadService } from './infrastructure/r2-upload.service';
 
@@ -114,6 +116,7 @@ import { R2UploadService } from './infrastructure/r2-upload.service';
     StockController,
     TechnicalController,
     RestaurantSettingsController,
+    PrintAgentController,
   ],
   providers: [
     RestaurantAuthService,
@@ -139,6 +142,7 @@ import { R2UploadService } from './infrastructure/r2-upload.service';
     AuditLogsService,
     BackupsService,
     R2UploadService,
+    PrintAgentGuard,
   ],
   exports: [RestaurantAuthService, TableService, OrderService, CategoryService, ProductService, CashShiftService],
 })
