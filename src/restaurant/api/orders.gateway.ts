@@ -82,4 +82,24 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   emitOrdersUpdated(restaurantId: string) {
     this.server.to(getRestaurantRoom(restaurantId)).emit('orders:updated');
   }
+
+  /** Fiş / adisyon yazdırma – print-agent `order.print_job` dinler */
+  emitPrintJob(
+    restaurantId: string,
+    payload: {
+      type: 'order.print_job';
+      jobId: string;
+      restaurantId: string;
+      printType: 'receipt';
+      createdAt: string;
+      order: {
+        tableName: string;
+        waiterName: string;
+        items: { productName: string; quantity: number; price: number; note?: string }[];
+        total: number;
+      };
+    },
+  ) {
+    this.server.to(getRestaurantRoom(restaurantId)).emit('order.print_job', payload);
+  }
 }

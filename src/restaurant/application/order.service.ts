@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OrderEntity } from '../domain/order.entity';
@@ -6,6 +7,7 @@ import { OrderItemEntity } from '../domain/order-item.entity';
 import { TableEntity } from '../domain/table.entity';
 import { RestaurantStaffEntity } from '../domain/restaurant-staff.entity';
 import { CreateOrderDto } from '../api/dto/create-order.dto';
+import { PrintReceiptDto } from '../api/dto/print-receipt.dto';
 import { OrdersGateway } from '../api/orders.gateway';
 import { CashShiftService } from './cash-shift.service';
 
@@ -72,6 +74,7 @@ export class OrderService {
     ]);
     const payload = {
       ...JSON.parse(JSON.stringify(created)),
+      restaurantId,
       tableName: table?.name ?? null,
       waiterName: waiter?.name ?? null,
     };
@@ -109,5 +112,70 @@ export class OrderService {
       this.ordersGateway.emitOrdersUpdated(restaurantId);
     }
     return { closed };
+  }
+
+  /**
+   * Masadaki tüm aktif siparişleri tek fişte birleştirir veya elden satış satırlarını doğrudan yollar.
+   * Print-agent WebSocket `order.print_job` ile alır.
+   */
+  async printReceipt(restaurantId: string, dto: PrintReceiptDto): Promise<{ ok: true; jobId: string }> {
+    const jobId = randomUUID();
+    const createdAt = new Date().toISOString();
+
+    let tableName: string;
+    let waiterName: string;
+    let items: { productName: string; quantity: number; price: number; note?: string }[];
+    let total: number;
+
+    if (dto.tableId) {
+      const orders = await this.findByRestaurant(restaurantId, dto.tableId);
+      if (!orders.length) {
+        throw new BadRequestException('Bu masada aktif sipariş yok');
+      }
+      const table = await this.tableRepo.findOne({ where: { id: dto.tableId, restaurantId } });
+      tableName = table?.name ?? dto.tableId;
+      const flat = orders.flatMap((o) => o.items.filter((i) => i.status !== 'cancelled'));
+      items = flat.map((i) => ({
+        productName: i.productName,
+        quantity: i.quantity,
+        price: Number(i.price),
+        note: i.note ?? undefined,
+      }));
+      total = items.reduce((s, i) => s + i.price * i.quantity, 0);
+      const firstUserId = orders.map((o) => o.userId).find(Boolean);
+      const waiter = firstUserId
+        ? await this.staffRepo.findOne({ where: { id: firstUserId, restaurantId } })
+        : null;
+      waiterName = waiter?.name ?? '-';
+    } else {
+      if (!dto.tableName?.trim() || !dto.items?.length || dto.total === undefined) {
+        throw new BadRequestException('tableId yoksa tableName, items ve total gerekli');
+      }
+      tableName = dto.tableName.trim();
+      waiterName = dto.waiterName?.trim() || '-';
+      items = dto.items.map((i) => ({
+        productName: i.productName,
+        quantity: i.quantity,
+        price: i.price,
+        note: i.note,
+      }));
+      total = dto.total;
+    }
+
+    this.ordersGateway.emitPrintJob(restaurantId, {
+      type: 'order.print_job',
+      jobId,
+      restaurantId,
+      printType: 'receipt',
+      createdAt,
+      order: {
+        tableName,
+        waiterName,
+        items,
+        total,
+      },
+    });
+
+    return { ok: true, jobId };
   }
 }

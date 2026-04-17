@@ -3,6 +3,7 @@ import { OrderService } from '../application/order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { MoveOrdersDto } from './dto/move-orders.dto';
 import { CloseOrdersDto } from './dto/close-orders.dto';
+import { PrintReceiptDto } from './dto/print-receipt.dto';
 import { RestaurantJwtGuard } from '../infrastructure/restaurant-jwt.guard';
 import { RestaurantId } from '../infrastructure/restaurant-id.decorator';
 
@@ -43,5 +44,10 @@ export class OrdersController {
     @Body() dto: CloseOrdersDto,
   ) {
     return this.service.closeTable(restaurantId, dto.tableId);
+  }
+
+  @Post('print-receipt')
+  printReceipt(@RestaurantId() restaurantId: string, @Body() dto: PrintReceiptDto) {
+    return this.service.printReceipt(restaurantId, dto);
   }
 }
