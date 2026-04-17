@@ -14,9 +14,11 @@ import { RestaurantsController } from './api/restaurants.controller';
 import { RootAdminsController } from './api/root-admins.controller';
 import { PlatformJwtStrategy } from './infrastructure/platform-jwt.strategy';
 import { PlatformAdminSeed } from './infrastructure/platform-admin.seed';
+import { RestaurantModule } from '../restaurant/restaurant.module';
 
 @Module({
   imports: [
+    RestaurantModule,
     TypeOrmModule.forFeature([PlatformAdminEntity, RestaurantEntity, RootAdminEntity]),
     PassportModule.register({ defaultStrategy: 'platform-jwt' }),
     JwtModule.registerAsync({

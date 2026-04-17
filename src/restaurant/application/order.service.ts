@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { OrderEntity } from '../domain/order.entity';
 import { OrderItemEntity } from '../domain/order-item.entity';
 import { TableEntity } from '../domain/table.entity';
 import { RestaurantStaffEntity } from '../domain/restaurant-staff.entity';
+import { ProductEntity } from '../domain/product.entity';
 import { CreateOrderDto } from '../api/dto/create-order.dto';
 import { PrintReceiptDto } from '../api/dto/print-receipt.dto';
 import { OrdersGateway } from '../api/orders.gateway';
@@ -22,9 +23,36 @@ export class OrderService {
     private readonly tableRepo: Repository<TableEntity>,
     @InjectRepository(RestaurantStaffEntity)
     private readonly staffRepo: Repository<RestaurantStaffEntity>,
+    @InjectRepository(ProductEntity)
+    private readonly productRepo: Repository<ProductEntity>,
     private readonly ordersGateway: OrdersGateway,
     private readonly cashShiftService: CashShiftService,
   ) {}
+
+  /** Sipariş kalemlerine ürünün kategori UUID'sini ekler (print-agent kategori->yazıcı eşlemesi için). */
+  private async attachCategoryIdsToItems(
+    items: Array<{ productId?: string } & Record<string, unknown>>,
+    restaurantId: string,
+  ): Promise<void> {
+    const ids = [...new Set(items.map((i) => i.productId).filter(Boolean))] as string[];
+    if (!ids.length) return;
+    const products = await this.productRepo.find({
+      where: { id: In(ids) },
+      relations: ['category'],
+    });
+    const map = new Map<string, string>();
+    for (const p of products) {
+      if (p.category?.restaurantId === restaurantId) {
+        map.set(p.id, p.categoryId);
+      }
+    }
+    for (const item of items) {
+      const pid = item.productId;
+      if (pid && map.has(pid)) {
+        item.categoryId = map.get(pid);
+      }
+    }
+  }
 
   async findByRestaurant(restaurantId: string, tableId?: string): Promise<OrderEntity[]> {
     const qb = this.orderRepo
@@ -77,7 +105,11 @@ export class OrderService {
       restaurantId,
       tableName: table?.name ?? null,
       waiterName: waiter?.name ?? null,
-    };
+    } as Record<string, unknown>;
+    const pItems = payload.items as Array<{ productId?: string } & Record<string, unknown>> | undefined;
+    if (pItems?.length) {
+      await this.attachCategoryIdsToItems(pItems, restaurantId);
+    }
     this.ordersGateway.emitOrderCreated(restaurantId, payload);
     return created;
   }
@@ -200,12 +232,17 @@ export class OrderService {
         ? await this.staffRepo.findOne({ where: { id: o.userId, restaurantId } })
         : null;
       const snapshot = { ...o, items };
-      out.push({
+      const row = {
         ...JSON.parse(JSON.stringify(snapshot)),
         restaurantId,
         tableName: o.table?.name ?? null,
         waiterName: waiter?.name ?? null,
-      });
+      } as Record<string, unknown>;
+      const rowItems = row.items as Array<{ productId?: string } & Record<string, unknown>> | undefined;
+      if (rowItems?.length) {
+        await this.attachCategoryIdsToItems(rowItems, restaurantId);
+      }
+      out.push(row);
     }
     return out;
   }

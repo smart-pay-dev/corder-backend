@@ -3,11 +3,15 @@ import { RestaurantService } from '../application/restaurant.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { PlatformJwtGuard } from '../infrastructure/platform-jwt.guard';
+import { CategoryService } from '../../restaurant/application/category.service';
 
 @Controller('platform/restaurants')
 @UseGuards(PlatformJwtGuard)
 export class RestaurantsController {
-  constructor(private readonly service: RestaurantService) {}
+  constructor(
+    private readonly service: RestaurantService,
+    private readonly categoryService: CategoryService,
+  ) {}
 
   @Get()
   async findAll() {
@@ -16,6 +20,13 @@ export class RestaurantsController {
       const { terminalPasswordHash, ...rest } = r;
       return rest;
     });
+  }
+
+  /** Panelde tanımlanan ürün kategorileri (yazıcı eşlemesi vb. için ID’ler). */
+  @Get(':id/categories')
+  async listCategories(@Param('id') id: string) {
+    await this.service.findOne(id);
+    return this.categoryService.findByRestaurant(id);
   }
 
   @Get(':id')
