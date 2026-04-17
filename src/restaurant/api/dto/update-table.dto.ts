@@ -11,6 +11,6 @@ export class UpdateTableDto {
   section?: string;
 
   @IsOptional()
-  @IsIn(['empty', 'occupied', 'ordering'])
+  @IsIn(['empty', 'occupied', 'ordering', 'checkout'])
   status?: string;
 }

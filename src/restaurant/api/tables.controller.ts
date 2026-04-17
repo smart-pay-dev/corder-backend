@@ -4,11 +4,15 @@ import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
 import { RestaurantJwtGuard } from '../infrastructure/restaurant-jwt.guard';
 import { RestaurantId } from '../infrastructure/restaurant-id.decorator';
+import { OrdersGateway } from './orders.gateway';
 
 @Controller('restaurant/tables')
 @UseGuards(RestaurantJwtGuard)
 export class TablesController {
-  constructor(private readonly service: TableService) {}
+  constructor(
+    private readonly service: TableService,
+    private readonly ordersGateway: OrdersGateway,
+  ) {}
 
   @Get()
   findAll(@RestaurantId() restaurantId: string) {
@@ -26,12 +30,14 @@ export class TablesController {
   }
 
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @RestaurantId() restaurantId: string,
     @Body() dto: UpdateTableDto,
   ) {
-    return this.service.update(id, restaurantId, dto);
+    const updated = await this.service.update(id, restaurantId, dto);
+    this.ordersGateway.emitOrdersUpdated(restaurantId);
+    return updated;
   }
 
   @Delete(':id')
