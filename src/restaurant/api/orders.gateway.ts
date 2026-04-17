@@ -92,6 +92,7 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
       restaurantId: string;
       printType: 'receipt';
       createdAt: string;
+      receiptMode?: 'consolidated' | 'split';
       order: {
         tableName: string;
         waiterName: string;

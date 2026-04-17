@@ -206,12 +206,15 @@ export class OrderService {
       total = dto.total;
     }
 
+    const receiptMode = dto.receiptMode ?? 'split';
+
     this.ordersGateway.emitPrintJob(restaurantId, {
       type: 'order.print_job',
       jobId,
       restaurantId,
       printType: 'receipt',
       createdAt,
+      receiptMode,
       order: {
         tableName,
         waiterName,

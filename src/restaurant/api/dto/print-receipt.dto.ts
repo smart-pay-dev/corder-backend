@@ -1,4 +1,4 @@
-import { IsUUID, IsOptional, IsString, IsArray, ValidateNested, IsNumber, Min } from 'class-validator';
+import { IsUUID, IsOptional, IsString, IsArray, ValidateNested, IsNumber, Min, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class PrintReceiptLineDto {
@@ -51,4 +51,12 @@ export class PrintReceiptDto {
   @IsNumber()
   @Min(0)
   total?: number;
+
+  /**
+   * `consolidated` = yönetim paneli kasa fişi (tek yazıcı, MANAGEMENT_RECEIPT_PRINTER).
+   * `split` = terminal / kategori bazlı adisyon (PRINT_CATEGORY_ROUTES). Varsayılan: split.
+   */
+  @IsOptional()
+  @IsIn(['consolidated', 'split'])
+  receiptMode?: 'consolidated' | 'split';
 }
