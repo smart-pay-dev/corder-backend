@@ -95,7 +95,14 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
       order: {
         tableName: string;
         waiterName: string;
-        items: { productName: string; quantity: number; price: number; note?: string }[];
+        items: {
+          productName: string;
+          quantity: number;
+          price: number;
+          note?: string;
+          productId?: string;
+          categoryId?: string;
+        }[];
         total: number;
       };
     },

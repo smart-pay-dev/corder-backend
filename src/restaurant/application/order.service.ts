@@ -156,7 +156,14 @@ export class OrderService {
 
     let tableName: string;
     let waiterName: string;
-    let items: { productName: string; quantity: number; price: number; note?: string }[];
+    let items: Array<{
+      productName: string;
+      quantity: number;
+      price: number;
+      note?: string;
+      productId?: string;
+      categoryId?: string;
+    }>;
     let total: number;
 
     if (dto.tableId) {
@@ -172,7 +179,9 @@ export class OrderService {
         quantity: i.quantity,
         price: Number(i.price),
         note: i.note ?? undefined,
+        productId: i.productId,
       }));
+      await this.attachCategoryIdsToItems(items, restaurantId);
       total = items.reduce((s, i) => s + i.price * i.quantity, 0);
       const firstUserId = orders.map((o) => o.userId).find(Boolean);
       const waiter = firstUserId
@@ -190,7 +199,10 @@ export class OrderService {
         quantity: i.quantity,
         price: i.price,
         note: i.note,
+        productId: i.productId,
+        categoryId: i.categoryId,
       }));
+      await this.attachCategoryIdsToItems(items, restaurantId);
       total = dto.total;
     }
 

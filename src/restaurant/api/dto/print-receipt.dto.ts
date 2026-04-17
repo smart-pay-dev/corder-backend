@@ -16,6 +16,15 @@ export class PrintReceiptLineDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  /** Ürün ID — sunucu kategori UUID ekler (print-agent kategori→yazıcı). */
+  @IsOptional()
+  @IsUUID()
+  productId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
 }
 
 /** Masa fişi: `tableId` ile sunucu birleştirir. Elden satış vb.: `tableId` yoksa `tableName` + `items` + `total` zorunlu. */
