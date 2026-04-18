@@ -1,8 +1,10 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { CompletedOrdersService } from '../application/completed-orders.service';
 import { RestaurantJwtGuard } from '../infrastructure/restaurant-jwt.guard';
+import { PanelRootGuard } from '../infrastructure/panel-root.guard';
 import { RestaurantId } from '../infrastructure/restaurant-id.decorator';
 import { CreateCompletedOrderDto } from './dto/create-completed-order.dto';
+import { UpdateCompletedOrderDto } from './dto/update-completed-order.dto';
 
 @Controller('restaurant/completed-orders')
 @UseGuards(RestaurantJwtGuard)
@@ -38,6 +40,17 @@ export class CompletedOrdersController {
     };
     const list = await this.service.list(restaurantId, filters);
     return list.map((c) => this.toDto(c));
+  }
+
+  @Patch(':id')
+  @UseGuards(PanelRootGuard)
+  async update(
+    @RestaurantId() restaurantId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateCompletedOrderDto,
+  ) {
+    const updated = await this.service.update(restaurantId, id, dto);
+    return this.toDto(updated);
   }
 
   private toDto(entity: {

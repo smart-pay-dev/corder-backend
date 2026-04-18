@@ -22,6 +22,8 @@ export interface RestaurantTokenPayload {
   email: string;
   name: string;
   type: 'restaurant';
+  /** `root` = panel yöneticisi; terminal girişinde `terminal`. Eski JWT’lerde yok. */
+  role?: RestaurantUserRole | 'terminal';
 }
 
 @Injectable()
@@ -53,6 +55,7 @@ export class RestaurantAuthService {
           email: admin.email,
           name: admin.name,
           type: 'restaurant',
+          role: 'root',
         };
         const accessToken = this.jwt.sign(payload, {
           secret: this.config.get('JWT_SECRET'),
@@ -76,6 +79,7 @@ export class RestaurantAuthService {
         email: restaurant.terminalEmail!,
         name: 'Terminal',
         type: 'restaurant',
+        role: 'terminal',
       };
       const accessToken = this.jwt.sign(payload, {
         secret: this.config.get('JWT_SECRET'),

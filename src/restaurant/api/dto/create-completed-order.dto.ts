@@ -34,6 +34,18 @@ export class CompletedOrderItemDto {
 
   @IsDateString()
   createdAt: string;
+
+  @IsOptional()
+  @IsString()
+  cancelReason?: string;
+
+  @IsOptional()
+  @IsString()
+  cancelledBy?: string;
+
+  @IsOptional()
+  @IsDateString()
+  cancelledAt?: string;
 }
 
 export class CompletedOrderDto {
@@ -59,6 +71,10 @@ export class CompletedOrderDto {
 
   @IsDateString()
   updatedAt: string;
+
+  @IsOptional()
+  @IsString()
+  mergedFrom?: string;
 }
 
 export class CompletedPaymentSplitDto {

@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CompletedOrderEntity } from '../domain/completed-order.entity';
 import { CreateCompletedOrderDto } from '../api/dto/create-completed-order.dto';
+import { UpdateCompletedOrderDto } from '../api/dto/update-completed-order.dto';
 
 interface ListFilters {
   from?: Date;
@@ -67,6 +68,63 @@ export class CompletedOrdersService {
       qb.skip(filters.offset);
     }
     return qb.getMany();
+  }
+
+  private sumActiveOrderLines(
+    orders: { items: { status: string; price: number; quantity: number }[] }[],
+  ): number {
+    let sum = 0;
+    for (const o of orders) {
+      for (const i of o.items || []) {
+        if (i.status === 'cancelled') continue;
+        sum += Number(i.price || 0) * Number(i.quantity || 0);
+      }
+    }
+    return sum;
+  }
+
+  private computeDiscountAmount(
+    rawTotal: number,
+    discount: { type: 'percent' | 'amount'; value: number } | undefined | null,
+  ): number {
+    if (!discount || rawTotal <= 0) return 0;
+    if (discount.type === 'percent') {
+      if (discount.value >= 100) return rawTotal;
+      return Math.round((rawTotal * Number(discount.value)) / 100);
+    }
+    return Math.min(Number(discount.value) || 0, rawTotal);
+  }
+
+  async update(
+    restaurantId: string,
+    id: string,
+    dto: UpdateCompletedOrderDto,
+  ): Promise<CompletedOrderEntity> {
+    const row = await this.repo.findOne({ where: { id, restaurantId } });
+    if (!row) {
+      throw new NotFoundException('Tamamlanan siparis bulunamadi');
+    }
+
+    const totalAmount = this.sumActiveOrderLines(dto.orders);
+    const discountAmount = this.computeDiscountAmount(totalAmount, dto.payment.discount ?? null);
+    const netAmount = Math.max(0, totalAmount - discountAmount);
+
+    const paymentSnapshot = {
+      ...dto.payment,
+      amount: netAmount,
+    };
+
+    row.ordersSnapshot = dto.orders as unknown[];
+    row.paymentSnapshot = paymentSnapshot as unknown;
+    row.totalAmount = totalAmount;
+    row.discountAmount = discountAmount;
+    row.netAmount = netAmount;
+    row.paymentMethod = dto.payment.method;
+    row.paymentTip = dto.payment.tip ?? 0;
+    row.paymentSplit = dto.payment.splitDetails ?? null;
+    row.paymentDiscount = dto.payment.discount ?? null;
+
+    return this.repo.save(row);
   }
 }
 

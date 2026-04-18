@@ -62,6 +62,7 @@ import { RestaurantSettingsController } from './api/restaurant-settings.controll
 import { OrdersGateway } from './api/orders.gateway';
 import { PrintAgentController } from './api/print-agent.controller';
 import { PrintAgentGuard } from './infrastructure/print-agent.guard';
+import { PanelRootGuard } from './infrastructure/panel-root.guard';
 import { RestaurantJwtStrategy } from './infrastructure/restaurant-jwt.strategy';
 import { R2UploadService } from './infrastructure/r2-upload.service';
 
@@ -143,6 +144,7 @@ import { R2UploadService } from './infrastructure/r2-upload.service';
     BackupsService,
     R2UploadService,
     PrintAgentGuard,
+    PanelRootGuard,
   ],
   exports: [RestaurantAuthService, TableService, OrderService, CategoryService, ProductService, CashShiftService],
 })

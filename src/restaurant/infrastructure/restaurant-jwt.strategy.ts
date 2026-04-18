@@ -16,12 +16,16 @@ export class RestaurantJwtStrategy extends PassportStrategy(Strategy, 'restauran
 
   validate(payload: RestaurantTokenPayload) {
     if (payload.type !== 'restaurant') throw new UnauthorizedException();
+    const role =
+      payload.role ??
+      (payload.sub === payload.restaurantId ? ('terminal' as const) : ('root' as const));
     return {
       restaurantId: payload.restaurantId,
       slug: payload.slug,
       sub: payload.sub,
       email: payload.email,
       name: payload.name ?? payload.email,
+      role,
     };
   }
 }
