@@ -73,11 +73,27 @@ export class MenuQueryService {
       order: { order: 'ASC', name: 'ASC' },
     });
 
-    const visible = new Set(
+    /** Categories explicitly enabled for menu/terminal */
+    const baseVisible = new Set(
       allCats
         .filter((c) => (forTerminal ? c.showInTerminal : c.showInMenu))
         .map((c) => c.id),
     );
+    /**
+     * Also include all descendants of those categories so subcategories stay in sync
+     * with the parent (a product under an alt kategori was invisible if only the
+     * parent had showInMenu and the child did not).
+     */
+    const visible = new Set(baseVisible);
+    const addDescendants = (parentId: string) => {
+      for (const c of allCats) {
+        if (c.parentId === parentId && !visible.has(c.id)) {
+          visible.add(c.id);
+          addDescendants(c.id);
+        }
+      }
+    };
+    for (const id of baseVisible) addDescendants(id);
 
     const roots = allCats
       .filter((c) => {
