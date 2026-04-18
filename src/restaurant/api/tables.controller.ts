@@ -19,6 +19,12 @@ export class TablesController {
     return this.service.findByRestaurant(restaurantId);
   }
 
+  /** `:id` rotasından önce tanımlanmalı (aksi halde `presence` id sanılır). */
+  @Get('presence')
+  tablePresence(@RestaurantId() restaurantId: string) {
+    return this.ordersGateway.getTablePresenceSnapshot(restaurantId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @RestaurantId() restaurantId: string) {
     return this.service.findOne(id, restaurantId);

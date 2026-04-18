@@ -76,6 +76,11 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(getRestaurantRoom(restaurantId)).emit('tables:presence', payload);
   }
 
+  /** HTTP yedek: WebSocket kaçırılsa bile terminal masada kimin olduğunu görsün. */
+  getTablePresenceSnapshot(restaurantId: string): Record<string, { staffId: string; staffName: string }> {
+    return this.getTablePresencePayload(restaurantId);
+  }
+
   async handleConnection(client: Socket) {
     const token =
       client.handshake.auth?.token || client.handshake.headers?.authorization?.replace?.('Bearer ', '');
