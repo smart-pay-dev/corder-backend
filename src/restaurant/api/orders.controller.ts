@@ -4,6 +4,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { MoveOrdersDto } from './dto/move-orders.dto';
 import { CloseOrdersDto } from './dto/close-orders.dto';
 import { PrintReceiptDto } from './dto/print-receipt.dto';
+import { MoveOrderItemsDto } from './dto/move-order-items.dto';
 import { RestaurantJwtGuard } from '../infrastructure/restaurant-jwt.guard';
 import { RestaurantId } from '../infrastructure/restaurant-id.decorator';
 
@@ -28,6 +29,16 @@ export class OrdersController {
   @Post()
   create(@RestaurantId() restaurantId: string, @Body() dto: CreateOrderDto) {
     return this.service.create(restaurantId, dto);
+  }
+
+  @Post('move-items')
+  moveOrderItems(@RestaurantId() restaurantId: string, @Body() dto: MoveOrderItemsDto) {
+    return this.service.moveItemsToTable(restaurantId, {
+      fromTableId: dto.fromTableId,
+      toTableId: dto.toTableId,
+      itemIds: dto.itemIds,
+      userId: dto.userId ?? null,
+    });
   }
 
   @Patch('move')

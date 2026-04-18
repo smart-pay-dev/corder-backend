@@ -49,6 +49,10 @@ export class OrderEntity {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
+  /** Ürün satırı başka masadan taşındıysa kaynak masa adı (yeni adisyon etiketi). */
+  @Column({ name: 'merged_from', type: 'varchar', length: 160, nullable: true })
+  mergedFrom: string | null;
+
   /** Mutfak fişi yazdırıldı (print-agent HTTP ack); null = hâlâ mutfak kuyruğunda sayılır. */
   @Column({ name: 'kitchen_ticket_printed_at', type: 'timestamptz', nullable: true })
   kitchenTicketPrintedAt: Date | null;

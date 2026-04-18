@@ -153,6 +153,117 @@ export class OrderService {
     return { moved };
   }
 
+  /**
+   * Seçilen sipariş kalemlerini hedef masada yeni bir aktif adisyonda toplar; kaynak satırlar silinir.
+   * Yeni siparişte `mergedFrom` = kaynak masa adı (hangi masadan taşındığı).
+   */
+  async moveItemsToTable(
+    restaurantId: string,
+    dto: {
+      fromTableId: string;
+      toTableId: string;
+      itemIds: string[];
+      userId?: string | null;
+    },
+  ): Promise<OrderEntity> {
+    const { fromTableId, toTableId, itemIds } = dto;
+    const uniqueIds = [...new Set(itemIds)];
+    if (fromTableId === toTableId) {
+      throw new BadRequestException('Ayni masaya tasinamaz');
+    }
+    await this.cashShiftService.requireCurrent(restaurantId);
+
+    const items = await this.itemRepo.find({
+      where: { id: In(uniqueIds) },
+      relations: ['order'],
+    });
+    if (items.length !== uniqueIds.length) {
+      throw new BadRequestException('Bir veya daha fazla kalem bulunamadi');
+    }
+
+    for (const it of items) {
+      const o = it.order;
+      if (!o || o.restaurantId !== restaurantId) {
+        throw new BadRequestException('Gecersiz kalem');
+      }
+      if (o.tableId !== fromTableId || o.status !== 'active') {
+        throw new BadRequestException('Kalem bu masada aktif degil');
+      }
+      if (it.status === 'cancelled') {
+        throw new BadRequestException('Iptal edilmis kalem tasinamaz');
+      }
+    }
+
+    const [fromTable, toTable] = await Promise.all([
+      this.tableRepo.findOne({ where: { id: fromTableId, restaurantId } }),
+      this.tableRepo.findOne({ where: { id: toTableId, restaurantId } }),
+    ]);
+    if (!fromTable || !toTable) {
+      throw new NotFoundException('Table not found');
+    }
+    if (fromTable.status === 'checkout' || toTable.status === 'checkout') {
+      throw new BadRequestException('Hesap kesimindeki masadan veya masaya kalem tasinamaz');
+    }
+    this.tableService.assertStaffMayUseTable(fromTable, dto.userId ?? null);
+    this.tableService.assertStaffMayUseTable(toTable, dto.userId ?? null);
+
+    const fromTableLabel = (fromTable.name ?? '').trim() || fromTableId;
+    const firstOrderUserId = items[0].order?.userId ?? null;
+    const newUserId = (dto.userId ?? firstOrderUserId)?.trim() || null;
+
+    const newOrderId = await this.orderRepo.manager.transaction(async (em) => {
+      for (const id of uniqueIds) {
+        await em.delete(OrderItemEntity, { id });
+      }
+      const affectedOrderIds = [...new Set(items.map((i) => i.orderId))];
+      for (const oid of affectedOrderIds) {
+        const remaining = await em.count(OrderItemEntity, { where: { orderId: oid } });
+        if (remaining === 0) {
+          await em.delete(OrderEntity, { id: oid });
+        }
+      }
+      const ord = em.create(OrderEntity, {
+        restaurantId,
+        tableId: toTableId,
+        userId: newUserId,
+        status: 'active',
+        mergedFrom: fromTableLabel,
+      });
+      const saved = await em.save(ord);
+      const newRows = items.map((src) =>
+        em.create(OrderItemEntity, {
+          orderId: saved.id,
+          productId: src.productId,
+          productName: src.productName,
+          price: src.price,
+          quantity: src.quantity,
+          note: src.note ?? undefined,
+          status: 'sent',
+        }),
+      );
+      await em.save(newRows);
+      return saved.id;
+    });
+
+    const created = await this.findOne(newOrderId, restaurantId);
+    const waiter = newUserId
+      ? await this.staffRepo.findOne({ where: { id: newUserId, restaurantId } })
+      : null;
+    const payload = {
+      ...JSON.parse(JSON.stringify(created)),
+      restaurantId,
+      tableName: toTable.name ?? null,
+      waiterName: waiter?.name ?? null,
+    } as Record<string, unknown>;
+    const pItems = payload.items as Array<{ productId?: string } & Record<string, unknown>> | undefined;
+    if (pItems?.length) {
+      await this.attachCategoryIdsToItems(pItems, restaurantId);
+    }
+    this.ordersGateway.emitOrdersUpdated(restaurantId);
+    this.ordersGateway.emitOrderCreated(restaurantId, payload);
+    return created;
+  }
+
   /** Hesap kapat: masadaki tüm active siparişleri closed yapar (panel/terminal anlık senkron). */
   async closeTable(restaurantId: string, tableId: string): Promise<{ closed: number }> {
     const result = await this.orderRepo.update(
