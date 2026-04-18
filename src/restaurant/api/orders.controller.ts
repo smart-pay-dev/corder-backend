@@ -5,6 +5,7 @@ import { MoveOrdersDto } from './dto/move-orders.dto';
 import { CloseOrdersDto } from './dto/close-orders.dto';
 import { PrintReceiptDto } from './dto/print-receipt.dto';
 import { MoveOrderItemsDto } from './dto/move-order-items.dto';
+import { CancelOrderItemDto } from './dto/cancel-order-item.dto';
 import { RestaurantJwtGuard } from '../infrastructure/restaurant-jwt.guard';
 import { RestaurantId } from '../infrastructure/restaurant-id.decorator';
 
@@ -40,6 +41,11 @@ export class OrdersController {
       userId: dto.userId ?? null,
       actorDisplayName: dto.actorDisplayName ?? null,
     });
+  }
+
+  @Post('cancel-item')
+  cancelItem(@RestaurantId() restaurantId: string, @Body() dto: CancelOrderItemDto) {
+    return this.service.cancelOrderItem(restaurantId, dto.itemId, dto.reason);
   }
 
   @Patch('move')

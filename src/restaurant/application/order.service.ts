@@ -372,6 +372,46 @@ export class OrderService {
     return { closed };
   }
 
+  /** Aktif sipariş kalemini iptal eder; panel/kasa senkronu için orders:updated yayınlanır. */
+  async cancelOrderItem(
+    restaurantId: string,
+    itemId: string,
+    _reason?: string,
+  ): Promise<{ ok: true }> {
+    await this.cashShiftService.requireCurrent(restaurantId);
+    const item = await this.itemRepo.findOne({
+      where: { id: itemId },
+      relations: ['order'],
+    });
+    if (!item?.order) throw new NotFoundException('Kalem bulunamadi');
+    const order = item.order;
+    if (order.restaurantId !== restaurantId) {
+      throw new BadRequestException('Gecersiz isletme');
+    }
+    if (order.status !== 'active') {
+      throw new BadRequestException('Siparis aktif degil');
+    }
+    if (item.status === 'cancelled') {
+      throw new BadRequestException('Kalem zaten iptal');
+    }
+    const table = await this.tableRepo.findOne({
+      where: { id: order.tableId, restaurantId },
+    });
+    if (!table) throw new NotFoundException('Masa bulunamadi');
+    if (table.status === 'checkout') {
+      throw new BadRequestException('Hesap kesiminde kalem iptal edilemez');
+    }
+
+    item.status = 'cancelled';
+    await this.itemRepo.save(item);
+    await this.orderRepo.update(
+      { id: order.id, restaurantId },
+      { updatedAt: new Date() },
+    );
+    this.ordersGateway.emitOrdersUpdated(restaurantId);
+    return { ok: true };
+  }
+
   /**
    * Konsolide kasa fişi: aynı ürün adı + birim fiyat tek satırda toplanır; not alanı düşürülür.
    */
