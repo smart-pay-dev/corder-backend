@@ -46,7 +46,9 @@ export class TableService {
     if (dto.section !== undefined) entity.section = dto.section;
     if (dto.status !== undefined) {
       entity.status = dto.status;
-      if (dto.status === 'occupied' || dto.status === 'empty' || dto.status === 'checkout') {
+      // Oturum kilidi yalnızca masa gerçekten bosalinca silinir. Kasa "checkout" / "occupied"
+      // gecisleri garsonu masadan dusurmez; hesap modalı kapaninca diger garsonlar hala kilidi gorur.
+      if (dto.status === 'empty') {
         entity.sessionStaffId = null;
         entity.sessionStaffName = null;
         entity.sessionLockedAt = null;
