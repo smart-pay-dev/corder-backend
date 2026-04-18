@@ -96,7 +96,7 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
       type: 'order.print_job';
       jobId: string;
       restaurantId: string;
-      printType: 'receipt';
+      printType: 'receipt' | 'kitchen_cancel';
       createdAt: string;
       receiptMode?: 'consolidated' | 'split';
       /** Konsolide kasa özetinde false (satır birleştirme, not yok); tekil adisyon / split’te true. */
@@ -104,6 +104,9 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
       order: {
         tableName: string;
         waiterName: string;
+        /** `kitchen_cancel` fişinde basılır. */
+        cancelledBy?: string;
+        cancelReason?: string;
         items: {
           productName: string;
           quantity: number;

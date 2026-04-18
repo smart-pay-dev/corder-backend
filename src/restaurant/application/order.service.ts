@@ -416,6 +416,41 @@ export class OrderService {
       { updatedAt: new Date() },
     );
     this.ordersGateway.emitOrdersUpdated(restaurantId);
+
+    const cancelJobId = randomUUID();
+    const createdAt = new Date().toISOString();
+    const waiter = order.userId
+      ? await this.staffRepo.findOne({ where: { id: order.userId, restaurantId } })
+      : null;
+    const waiterName =
+      (order.userDisplayName && order.userDisplayName.trim()) || waiter?.name?.trim() || '-';
+    const printItems = [
+      {
+        productName: item.productName,
+        quantity: item.quantity,
+        price: Number(item.price),
+        note: item.note ?? undefined,
+        productId: item.productId,
+      },
+    ];
+    await this.attachCategoryIdsToItems(printItems, restaurantId);
+    this.ordersGateway.emitPrintJob(restaurantId, {
+      type: 'order.print_job',
+      jobId: cancelJobId,
+      restaurantId,
+      printType: 'kitchen_cancel',
+      createdAt,
+      includeLineNotes: true,
+      order: {
+        tableName: (table.name ?? '').trim() || '-',
+        waiterName,
+        cancelledBy: item.cancelledBy ?? '-',
+        cancelReason: item.cancelReason ?? '-',
+        items: printItems,
+        total: Number(item.price) * item.quantity,
+      },
+    });
+
     return { ok: true };
   }
 
