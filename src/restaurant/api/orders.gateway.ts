@@ -3,8 +3,11 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
+  MessageBody,
+  ConnectedSocket,
 } from '@nestjs/websockets';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Injectable } from '@nestjs/common';
@@ -26,6 +29,12 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
+  /** restaurantId -> (tableId -> kilit) — yalnızca JWT (terminal/panel) oturumları. */
+  private readonly tableLocks = new Map<
+    string,
+    Map<string, { staffId: string; staffName: string; socketId: string }>
+  >();
+
   constructor(
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
@@ -33,7 +42,41 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly restaurantRepo: Repository<RestaurantEntity>,
   ) {}
 
-  async handleConnection(client: import('socket.io').Socket) {
+  private getInner(restaurantId: string): Map<string, { staffId: string; staffName: string; socketId: string }> {
+    let m = this.tableLocks.get(restaurantId);
+    if (!m) {
+      m = new Map();
+      this.tableLocks.set(restaurantId, m);
+    }
+    return m;
+  }
+
+  private removeSocketFromRestaurant(restaurantId: string, socketId: string): void {
+    const inner = this.tableLocks.get(restaurantId);
+    if (!inner) return;
+    for (const [tid, v] of [...inner.entries()]) {
+      if (v.socketId === socketId) inner.delete(tid);
+    }
+    if (inner.size === 0) this.tableLocks.delete(restaurantId);
+  }
+
+  private getTablePresencePayload(restaurantId: string): Record<string, { staffId: string; staffName: string }> {
+    const inner = this.tableLocks.get(restaurantId);
+    const payload: Record<string, { staffId: string; staffName: string }> = {};
+    if (inner) {
+      for (const [tid, v] of inner) {
+        payload[tid] = { staffId: v.staffId, staffName: v.staffName };
+      }
+    }
+    return payload;
+  }
+
+  private broadcastTablePresence(restaurantId: string): void {
+    const payload = this.getTablePresencePayload(restaurantId);
+    this.server.to(getRestaurantRoom(restaurantId)).emit('tables:presence', payload);
+  }
+
+  async handleConnection(client: Socket) {
     const token =
       client.handshake.auth?.token || client.handshake.headers?.authorization?.replace?.('Bearer ', '');
     if (!token) {
@@ -50,6 +93,7 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.data.restaurantId = payload.restaurantId;
       client.data.authType = 'jwt';
       client.join(getRestaurantRoom(payload.restaurantId));
+      client.emit('tables:presence', this.getTablePresencePayload(payload.restaurantId));
       return;
     } catch {
       // JWT değilse statik print-agent token kontrolüne düş.
@@ -65,7 +109,45 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.join(getRestaurantRoom(restaurant.id));
   }
 
-  handleDisconnect(_client: import('socket.io').Socket) {}
+  handleDisconnect(client: Socket): void {
+    const rid = client.data?.restaurantId as string | undefined;
+    if (rid && client.data?.authType === 'jwt') {
+      this.removeSocketFromRestaurant(rid, client.id);
+      this.broadcastTablePresence(rid);
+    }
+  }
+
+  /** Terminal: bir garson masada (detay / menü / sepet / taşıma / adisyon) iken diğer cihazlara yansır. */
+  @SubscribeMessage('table:focus')
+  handleTableFocus(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: { tableId?: string; staffId?: string; staffName?: string },
+  ): { ok: boolean; holderName?: string } {
+    if (client.data?.authType !== 'jwt') return { ok: true };
+    const restaurantId = client.data.restaurantId as string;
+    const tableId = body?.tableId?.trim();
+    const staffId = body?.staffId?.trim();
+    const staffName = (body?.staffName ?? '').trim() || 'Garson';
+    if (!tableId || !staffId) return { ok: false };
+    const inner = this.getInner(restaurantId);
+    const existing = inner.get(tableId);
+    if (existing && existing.socketId !== client.id) {
+      return { ok: false, holderName: existing.staffName };
+    }
+    this.removeSocketFromRestaurant(restaurantId, client.id);
+    inner.set(tableId, { staffId, staffName, socketId: client.id });
+    this.broadcastTablePresence(restaurantId);
+    return { ok: true };
+  }
+
+  @SubscribeMessage('table:blur')
+  handleTableBlur(@ConnectedSocket() client: Socket): { ok: boolean } {
+    if (client.data?.authType !== 'jwt') return { ok: true };
+    const restaurantId = client.data.restaurantId as string;
+    this.removeSocketFromRestaurant(restaurantId, client.id);
+    this.broadcastTablePresence(restaurantId);
+    return { ok: true };
+  }
 
   emitOrderCreated(restaurantId: string, order: Record<string, unknown>) {
     this.server.to(getRestaurantRoom(restaurantId)).emit('order:created', order);
