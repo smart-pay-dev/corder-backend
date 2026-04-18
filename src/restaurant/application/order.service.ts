@@ -157,12 +157,58 @@ export class OrderService {
   }
 
   /**
+   * Konsolide kasa fişi: aynı ürün adı + birim fiyat tek satırda toplanır; not alanı düşürülür.
+   */
+  private aggregateConsolidatedReceiptLines(
+    lines: Array<{
+      productName: string;
+      quantity: number;
+      price: number;
+      note?: string;
+      productId?: string;
+      categoryId?: string;
+    }>,
+  ): Array<{
+    productName: string;
+    quantity: number;
+    price: number;
+    productId?: string;
+    categoryId?: string;
+  }> {
+    const map = new Map<
+      string,
+      { productName: string; quantity: number; price: number; productId?: string; categoryId?: string }
+    >();
+    for (const raw of lines) {
+      const name = (raw.productName || '').trim() || 'Urun';
+      const price = Number(raw.price) || 0;
+      const key = `${name}\u0000${price}`;
+      const qty = Number(raw.quantity) || 0;
+      if (qty <= 0) continue;
+      const cur = map.get(key);
+      if (cur) {
+        cur.quantity += qty;
+      } else {
+        map.set(key, {
+          productName: name,
+          quantity: qty,
+          price,
+          productId: raw.productId,
+          categoryId: raw.categoryId,
+        });
+      }
+    }
+    return [...map.values()];
+  }
+
+  /**
    * Masadaki tüm aktif siparişleri tek fişte birleştirir veya elden satış satırlarını doğrudan yollar.
-   * Print-agent WebSocket `order.print_job` ile alır.
+   * `orderId` ile tek adisyon (notlar dahil). Print-agent WebSocket `order.print_job` ile alır.
    */
   async printReceipt(restaurantId: string, dto: PrintReceiptDto): Promise<{ ok: true; jobId: string }> {
     const jobId = randomUUID();
     const createdAt = new Date().toISOString();
+    const receiptMode = dto.receiptMode ?? 'split';
 
     let tableName: string;
     let waiterName: string;
@@ -176,7 +222,30 @@ export class OrderService {
     }>;
     let total: number;
 
-    if (dto.tableId) {
+    if (dto.orderId) {
+      const o = await this.orderRepo.findOne({
+        where: { id: dto.orderId, restaurantId, status: In(['active', 'closed']) },
+        relations: ['items', 'table'],
+      });
+      if (!o) {
+        throw new NotFoundException('Sipariş bulunamadı');
+      }
+      tableName = o.table?.name ?? '-';
+      const rawItems = o.items?.filter((i) => i.status !== 'cancelled') ?? [];
+      items = rawItems.map((i) => ({
+        productName: i.productName,
+        quantity: i.quantity,
+        price: Number(i.price),
+        note: i.note ?? undefined,
+        productId: i.productId,
+      }));
+      await this.attachCategoryIdsToItems(items, restaurantId);
+      total = items.reduce((s, i) => s + i.price * i.quantity, 0);
+      const waiter = o.userId
+        ? await this.staffRepo.findOne({ where: { id: o.userId, restaurantId } })
+        : null;
+      waiterName = waiter?.name ?? '-';
+    } else if (dto.tableId) {
       const orders = await this.findByRestaurant(restaurantId, dto.tableId);
       if (!orders.length) {
         throw new BadRequestException('Bu masada aktif sipariş yok');
@@ -192,6 +261,9 @@ export class OrderService {
         productId: i.productId,
       }));
       await this.attachCategoryIdsToItems(items, restaurantId);
+      if (receiptMode === 'consolidated') {
+        items = this.aggregateConsolidatedReceiptLines(items);
+      }
       total = items.reduce((s, i) => s + i.price * i.quantity, 0);
       const firstUserId = orders.map((o) => o.userId).find(Boolean);
       const waiter = firstUserId
@@ -213,10 +285,15 @@ export class OrderService {
         categoryId: i.categoryId,
       }));
       await this.attachCategoryIdsToItems(items, restaurantId);
-      total = dto.total;
+      if (receiptMode === 'consolidated') {
+        items = this.aggregateConsolidatedReceiptLines(items);
+      }
+      const computedFromLines = items.reduce((s, i) => s + i.price * i.quantity, 0);
+      total =
+        dto.total !== undefined && dto.total !== null ? Number(dto.total) : computedFromLines;
     }
 
-    const receiptMode = dto.receiptMode ?? 'split';
+    const includeLineNotes = receiptMode === 'split' || Boolean(dto.orderId);
 
     this.ordersGateway.emitPrintJob(restaurantId, {
       type: 'order.print_job',
@@ -225,6 +302,7 @@ export class OrderService {
       printType: 'receipt',
       createdAt,
       receiptMode,
+      includeLineNotes,
       order: {
         tableName,
         waiterName,

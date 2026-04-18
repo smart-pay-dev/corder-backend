@@ -29,6 +29,11 @@ export class PrintReceiptLineDto {
 
 /** Masa fişi: `tableId` ile sunucu birleştirir. Elden satış vb.: `tableId` yoksa `tableName` + `items` + `total` zorunlu. */
 export class PrintReceiptDto {
+  /** Tek sipariş (adisyon) fişi — notlar dahil; tamamlanmış siparişlerde de kullanılabilir. */
+  @IsOptional()
+  @IsUUID()
+  orderId?: string;
+
   @IsOptional()
   @IsUUID()
   tableId?: string;

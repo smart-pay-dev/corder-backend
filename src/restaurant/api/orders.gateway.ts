@@ -93,6 +93,8 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
       printType: 'receipt';
       createdAt: string;
       receiptMode?: 'consolidated' | 'split';
+      /** Konsolide kasa özetinde false (satır birleştirme, not yok); tekil adisyon / split’te true. */
+      includeLineNotes?: boolean;
       order: {
         tableName: string;
         waiterName: string;
