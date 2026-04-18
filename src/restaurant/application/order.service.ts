@@ -56,7 +56,71 @@ export class OrderService {
     }
   }
 
-  async findByRestaurant(restaurantId: string, tableId?: string): Promise<OrderEntity[]> {
+  private async staffNameMap(
+    restaurantId: string,
+    userIds: (string | null | undefined)[],
+  ): Promise<Map<string, string>> {
+    const ids = [
+      ...new Set(
+        userIds
+          .map((x) => (typeof x === 'string' ? x.trim() : ''))
+          .filter((x): x is string => Boolean(x)),
+      ),
+    ];
+    if (!ids.length) return new Map();
+    const rows = await this.staffRepo.find({
+      where: { restaurantId, id: In(ids) },
+      select: ['id', 'name'],
+    });
+    const m = new Map<string, string>();
+    for (const s of rows) {
+      const n = (s.name ?? '').trim();
+      if (n) m.set(s.id, n);
+    }
+    return m;
+  }
+
+  private serializeOrderEntity(o: OrderEntity, nameMap: Map<string, string>): Record<string, unknown> {
+    const uid = o.userId?.trim() ?? null;
+    const userName =
+      (o.userDisplayName && o.userDisplayName.trim()) || (uid ? nameMap.get(uid) ?? null : null);
+    return {
+      id: o.id,
+      restaurantId: o.restaurantId,
+      tableId: o.tableId,
+      userId: o.userId,
+      userName,
+      status: o.status,
+      createdAt: o.createdAt,
+      updatedAt: o.updatedAt,
+      mergedFrom: o.mergedFrom ?? null,
+      kitchenTicketPrintedAt: o.kitchenTicketPrintedAt ?? null,
+      items: (o.items || []).map((i) => ({
+        id: i.id,
+        orderId: i.orderId,
+        productId: i.productId,
+        productName: i.productName,
+        price: Number(i.price),
+        quantity: i.quantity,
+        note: i.note ?? undefined,
+        status: i.status,
+        createdAt: i.createdAt,
+      })),
+    };
+  }
+
+  private async serializeOrderEntities(
+    restaurantId: string,
+    orders: OrderEntity[],
+  ): Promise<Record<string, unknown>[]> {
+    const map = await this.staffNameMap(
+      restaurantId,
+      orders.map((o) => o.userId),
+    );
+    return orders.map((o) => this.serializeOrderEntity(o, map));
+  }
+
+  private async loadActiveOrdersEntities(restaurantId: string, tableId?: string): Promise<OrderEntity[]> {
     const qb = this.orderRepo
       .createQueryBuilder('o')
       .leftJoinAndSelect('o.items', 'items')
@@ -67,24 +131,38 @@ export class OrderService {
     return qb.getMany();
   }
 
-  async findOne(id: string, restaurantId: string): Promise<OrderEntity> {
-    const o = await this.orderRepo.findOne({
+  private async loadOrderEntity(id: string, restaurantId: string): Promise<OrderEntity | null> {
+    return this.orderRepo.findOne({
       where: { id, restaurantId },
       relations: ['items'],
     });
-    if (!o) throw new NotFoundException('Order not found');
-    return o;
   }
 
-  async create(restaurantId: string, dto: CreateOrderDto): Promise<OrderEntity> {
+  async findByRestaurant(restaurantId: string, tableId?: string): Promise<Record<string, unknown>[]> {
+    const orders = await this.loadActiveOrdersEntities(restaurantId, tableId);
+    return this.serializeOrderEntities(restaurantId, orders);
+  }
+
+  async findOne(id: string, restaurantId: string): Promise<Record<string, unknown>> {
+    const o = await this.loadOrderEntity(id, restaurantId);
+    if (!o) throw new NotFoundException('Order not found');
+    const map = await this.staffNameMap(restaurantId, [o.userId]);
+    return this.serializeOrderEntity(o, map);
+  }
+
+  async create(restaurantId: string, dto: CreateOrderDto): Promise<Record<string, unknown>> {
     const table = await this.tableRepo.findOne({ where: { id: dto.tableId, restaurantId } });
     if (!table) throw new NotFoundException('Table not found');
     this.tableService.assertStaffMayUseTable(table, dto.userId ?? null);
     await this.cashShiftService.requireCurrent(restaurantId);
+    const waiter = dto.userId
+      ? await this.staffRepo.findOne({ where: { id: dto.userId, restaurantId } })
+      : null;
     const order = this.orderRepo.create({
       restaurantId,
       tableId: dto.tableId,
       userId: dto.userId ?? null,
+      userDisplayName: waiter?.name?.trim() ?? null,
       status: 'active',
     });
     const saved = await this.orderRepo.save(order) as OrderEntity;
@@ -100,22 +178,22 @@ export class OrderService {
       }),
     );
     await this.itemRepo.save(items);
-    const created = await this.findOne(saved.id, restaurantId);
-    const waiter = dto.userId
-      ? await this.staffRepo.findOne({ where: { id: dto.userId, restaurantId } })
-      : null;
+    const createdEntity = await this.loadOrderEntity(saved.id, restaurantId);
+    if (!createdEntity) throw new NotFoundException('Order not found');
+    const map = await this.staffNameMap(restaurantId, [createdEntity.userId]);
+    const serialized = this.serializeOrderEntity(createdEntity, map);
     const payload = {
-      ...JSON.parse(JSON.stringify(created)),
+      ...serialized,
       restaurantId,
       tableName: table.name ?? null,
-      waiterName: waiter?.name ?? null,
+      waiterName: (serialized.userName as string | null) ?? null,
     } as Record<string, unknown>;
     const pItems = payload.items as Array<{ productId?: string } & Record<string, unknown>> | undefined;
     if (pItems?.length) {
       await this.attachCategoryIdsToItems(pItems, restaurantId);
     }
     this.ordersGateway.emitOrderCreated(restaurantId, payload);
-    return created;
+    return serialized;
   }
 
   /** Move all active orders from one table to another (merge/transfer). */
@@ -164,8 +242,9 @@ export class OrderService {
       toTableId: string;
       itemIds: string[];
       userId?: string | null;
+      actorDisplayName?: string | null;
     },
-  ): Promise<OrderEntity> {
+  ): Promise<Record<string, unknown>> {
     const { fromTableId, toTableId, itemIds } = dto;
     const uniqueIds = [...new Set(itemIds)];
     if (fromTableId === toTableId) {
@@ -210,6 +289,12 @@ export class OrderService {
     const fromTableLabel = (fromTable.name ?? '').trim() || fromTableId;
     const firstOrderUserId = items[0].order?.userId ?? null;
     const newUserId = (dto.userId ?? firstOrderUserId)?.trim() || null;
+    const moverName =
+      (dto.actorDisplayName ?? '').trim() ||
+      (newUserId
+        ? (await this.staffRepo.findOne({ where: { id: newUserId, restaurantId } }))?.name?.trim() ||
+          null
+        : null);
 
     const newOrderId = await this.orderRepo.manager.transaction(async (em) => {
       for (const id of uniqueIds) {
@@ -226,6 +311,7 @@ export class OrderService {
         restaurantId,
         tableId: toTableId,
         userId: newUserId,
+        userDisplayName: moverName,
         status: 'active',
         mergedFrom: fromTableLabel,
       });
@@ -245,15 +331,19 @@ export class OrderService {
       return saved.id;
     });
 
-    const created = await this.findOne(newOrderId, restaurantId);
+    const createdEntity = await this.loadOrderEntity(newOrderId, restaurantId);
+    if (!createdEntity) throw new NotFoundException('Order not found');
+    const map = await this.staffNameMap(restaurantId, [createdEntity.userId]);
+    const serialized = this.serializeOrderEntity(createdEntity, map);
     const waiter = newUserId
       ? await this.staffRepo.findOne({ where: { id: newUserId, restaurantId } })
       : null;
     const payload = {
-      ...JSON.parse(JSON.stringify(created)),
+      ...serialized,
       restaurantId,
       tableName: toTable.name ?? null,
-      waiterName: waiter?.name ?? null,
+      waiterName:
+        (serialized.userName as string | null) ?? (waiter?.name ?? null),
     } as Record<string, unknown>;
     const pItems = payload.items as Array<{ productId?: string } & Record<string, unknown>> | undefined;
     if (pItems?.length) {
@@ -261,7 +351,7 @@ export class OrderService {
     }
     this.ordersGateway.emitOrdersUpdated(restaurantId);
     this.ordersGateway.emitOrderCreated(restaurantId, payload);
-    return created;
+    return serialized;
   }
 
   /** Hesap kapat: masadaki tüm active siparişleri closed yapar (panel/terminal anlık senkron). */
@@ -370,9 +460,10 @@ export class OrderService {
       const waiter = o.userId
         ? await this.staffRepo.findOne({ where: { id: o.userId, restaurantId } })
         : null;
-      waiterName = waiter?.name ?? '-';
+      waiterName =
+        (o.userDisplayName && o.userDisplayName.trim()) || waiter?.name?.trim() || '-';
     } else if (dto.tableId) {
-      const orders = await this.findByRestaurant(restaurantId, dto.tableId);
+      const orders = await this.loadActiveOrdersEntities(restaurantId, dto.tableId);
       if (!orders.length) {
         throw new BadRequestException('Bu masada aktif sipariş yok');
       }
@@ -391,11 +482,15 @@ export class OrderService {
         items = this.aggregateConsolidatedReceiptLines(items);
       }
       total = items.reduce((s, i) => s + i.price * i.quantity, 0);
-      const firstUserId = orders.map((o) => o.userId).find(Boolean);
+      const firstWithUser = orders.find((ord) => ord.userId);
+      const firstUserId = firstWithUser?.userId;
       const waiter = firstUserId
         ? await this.staffRepo.findOne({ where: { id: firstUserId, restaurantId } })
         : null;
-      waiterName = waiter?.name ?? '-';
+      waiterName =
+        (firstWithUser?.userDisplayName && firstWithUser.userDisplayName.trim()) ||
+        waiter?.name?.trim() ||
+        '-';
     } else {
       if (!dto.tableName?.trim() || !dto.items?.length || dto.total === undefined) {
         throw new BadRequestException('tableId yoksa tableName, items ve total gerekli');
@@ -465,7 +560,8 @@ export class OrderService {
         ...JSON.parse(JSON.stringify(snapshot)),
         restaurantId,
         tableName: o.table?.name ?? null,
-        waiterName: waiter?.name ?? null,
+        waiterName:
+          (o.userDisplayName && o.userDisplayName.trim()) || waiter?.name?.trim() || null,
       } as Record<string, unknown>;
       const rowItems = row.items as Array<{ productId?: string } & Record<string, unknown>> | undefined;
       if (rowItems?.length) {

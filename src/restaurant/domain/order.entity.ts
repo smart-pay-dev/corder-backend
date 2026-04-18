@@ -37,6 +37,10 @@ export class OrderEntity {
   @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId: string | null;
 
+  /** Personel listesinde olmayan kullanicilar (root/kasa) icin gorunen ad (userId yaninda UUID cikmasin). */
+  @Column({ name: 'user_display_name', type: 'varchar', length: 120, nullable: true })
+  userDisplayName: string | null;
+
   @Column({ default: 'active' })
   status: string;
 

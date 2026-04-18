@@ -38,6 +38,7 @@ export class OrdersController {
       toTableId: dto.toTableId,
       itemIds: dto.itemIds,
       userId: dto.userId ?? null,
+      actorDisplayName: dto.actorDisplayName ?? null,
     });
   }
 
