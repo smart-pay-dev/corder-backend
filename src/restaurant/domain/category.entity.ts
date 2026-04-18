@@ -13,7 +13,7 @@ import { ProductEntity } from './product.entity';
 
 @Entity('categories')
 @Index(['restaurantId'])
-@Index(['restaurantId', 'slug'], { unique: true })
+@Index(['parentId'])
 export class CategoryEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -24,6 +24,16 @@ export class CategoryEntity {
   @ManyToOne(() => RestaurantEntity, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'restaurant_id' })
   restaurant: RestaurantEntity;
+
+  @Column({ name: 'parent_id', type: 'uuid', nullable: true })
+  parentId: string | null;
+
+  @ManyToOne(() => CategoryEntity, (c) => c.children, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'parent_id' })
+  parent: CategoryEntity | null;
+
+  @OneToMany(() => CategoryEntity, (c) => c.parent)
+  children: CategoryEntity[];
 
   @Column()
   name: string;

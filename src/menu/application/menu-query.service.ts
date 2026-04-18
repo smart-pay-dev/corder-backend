@@ -6,6 +6,23 @@ import { CategoryEntity } from '../../restaurant/domain/category.entity';
 import { ProductEntity } from '../../restaurant/domain/product.entity';
 import { CampaignEntity } from '../../restaurant/domain/campaign.entity';
 
+export interface MenuProductRow {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  imageUrl?: string;
+  inStock: boolean;
+}
+
+export interface MenuCategoryTreeDto {
+  id: string;
+  name: string;
+  slug: string;
+  products: MenuProductRow[];
+  children: MenuCategoryTreeDto[];
+}
+
 export interface MenuBusinessDto {
   id: string;
   name: string;
@@ -19,8 +36,18 @@ export interface MenuBusinessDto {
   instagram?: string;
   facebook?: string;
   website?: string;
-  categories: { id: string; name: string; slug: string; products: { id: string; name: string; description?: string; price: number; imageUrl?: string; inStock: boolean }[] }[];
-  campaigns: { id: string; title: string; description?: string; imageUrl: string; discountPercent?: number; originalPrice?: number; discountedPrice?: number; validUntil?: string; isActive: boolean }[];
+  categories: MenuCategoryTreeDto[];
+  campaigns: {
+    id: string;
+    title: string;
+    description?: string;
+    imageUrl: string;
+    discountPercent?: number;
+    originalPrice?: number;
+    discountedPrice?: number;
+    validUntil?: string;
+    isActive: boolean;
+  }[];
 }
 
 @Injectable()
@@ -36,40 +63,78 @@ export class MenuQueryService {
     private readonly campaignRepo: Repository<CampaignEntity>,
   ) {}
 
-  async getBusinessBySlug(slug: string | null): Promise<MenuBusinessDto> {
+  async getBusinessBySlug(slug: string | null, forTerminal = false): Promise<MenuBusinessDto> {
     if (!slug?.trim()) throw new NotFoundException('restaurant query is required');
     const restaurant = await this.restaurantRepo.findOne({ where: { slug: slug.trim(), status: 'active' } });
     if (!restaurant) throw new NotFoundException('Business not found');
-    const categories = await this.categoryRepo.find({
-      where: { restaurantId: restaurant.id, showInMenu: true },
+
+    const allCats = await this.categoryRepo.find({
+      where: { restaurantId: restaurant.id },
       order: { order: 'ASC', name: 'ASC' },
     });
-    const categoryIds = categories.map((c) => c.id);
-    const products = categoryIds.length
+
+    const visible = new Set(
+      allCats
+        .filter((c) => (forTerminal ? c.showInTerminal : c.showInMenu))
+        .map((c) => c.id),
+    );
+
+    const roots = allCats
+      .filter((c) => {
+        if (!visible.has(c.id)) return false;
+        if (!c.parentId) return true;
+        return !visible.has(c.parentId);
+      })
+      .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+
+    const idsForProducts = new Set<string>();
+    const walkCollect = (c: CategoryEntity) => {
+      if (!visible.has(c.id)) return;
+      idsForProducts.add(c.id);
+      const children = allCats.filter((x) => x.parentId === c.id && visible.has(x.id));
+      children.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+      for (const ch of children) walkCollect(ch);
+    };
+    roots.forEach(walkCollect);
+
+    const products = idsForProducts.size
       ? await this.productRepo.find({
-          where: { categoryId: In(categoryIds) },
+          where: { categoryId: In([...idsForProducts]) },
           order: { order: 'ASC', name: 'ASC' },
         })
       : [];
+
+    const mapProduct = (p: ProductEntity): MenuProductRow => ({
+      id: p.id,
+      name: p.name,
+      description: p.description ?? undefined,
+      price: Number(p.price),
+      imageUrl: p.imageUrl ?? undefined,
+      inStock: p.inStock,
+    });
+
+    const buildNode = (c: CategoryEntity): MenuCategoryTreeDto => {
+      const children = allCats
+        .filter((ch) => ch.parentId === c.id && visible.has(ch.id))
+        .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+        .map(buildNode);
+      const catProducts = products.filter((p) => p.categoryId === c.id).map(mapProduct);
+      return {
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        products: catProducts,
+        children,
+      };
+    };
+
+    const categories = roots.map(buildNode);
+
     const campaigns = await this.campaignRepo.find({
       where: { restaurantId: restaurant.id, isActive: true },
       order: { order: 'ASC' },
     });
-    const categoriesWithProducts = categories.map((cat) => ({
-      id: cat.id,
-      name: cat.name,
-      slug: cat.slug,
-      products: products
-        .filter((p) => p.categoryId === cat.id)
-        .map((p) => ({
-          id: p.id,
-          name: p.name,
-          description: p.description ?? undefined,
-          price: Number(p.price),
-          imageUrl: p.imageUrl ?? undefined,
-          inStock: p.inStock,
-        })),
-    }));
+
     return {
       id: restaurant.id,
       name: restaurant.name,
@@ -77,7 +142,12 @@ export class MenuQueryService {
       address: restaurant.address ?? undefined,
       phone: restaurant.phone ?? undefined,
       email: restaurant.email ?? undefined,
-      categories: categoriesWithProducts,
+      workingHours: restaurant.workingHours ?? undefined,
+      whatsapp: restaurant.whatsapp ?? undefined,
+      instagram: restaurant.instagram ?? undefined,
+      facebook: restaurant.facebook ?? undefined,
+      website: restaurant.website ?? undefined,
+      categories,
       campaigns: campaigns.map((c) => ({
         id: c.id,
         title: c.title,

@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nes
 import { CategoryService } from '../application/category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { ReorderCategoriesDto } from './dto/reorder-categories.dto';
 import { RestaurantJwtGuard } from '../infrastructure/restaurant-jwt.guard';
 import { RestaurantId } from '../infrastructure/restaurant-id.decorator';
 
@@ -40,10 +41,7 @@ export class CategoriesController {
   }
 
   @Post('reorder')
-  reorder(
-    @RestaurantId() restaurantId: string,
-    @Body() body: { ids: string[] },
-  ) {
-    return this.service.reorder(restaurantId, body.ids ?? []);
+  reorder(@RestaurantId() restaurantId: string, @Body() body: ReorderCategoriesDto) {
+    return this.service.reorder(restaurantId, body);
   }
 }
