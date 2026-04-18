@@ -31,6 +31,16 @@ export class TableEntity {
   @Column({ default: 'empty' })
   status: string;
 
+  /** Garson terminalde bu masada işlemde — kasadaki checkout gibi kalıcı; diğer garson API ile giremez. */
+  @Column({ name: 'session_staff_id', type: 'uuid', nullable: true })
+  sessionStaffId: string | null;
+
+  @Column({ name: 'session_staff_name', type: 'varchar', length: 120, nullable: true })
+  sessionStaffName: string | null;
+
+  @Column({ name: 'session_locked_at', type: 'timestamptz', nullable: true })
+  sessionLockedAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

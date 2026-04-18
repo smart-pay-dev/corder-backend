@@ -11,6 +11,7 @@ import { CreateOrderDto } from '../api/dto/create-order.dto';
 import { PrintReceiptDto } from '../api/dto/print-receipt.dto';
 import { OrdersGateway } from '../api/orders.gateway';
 import { CashShiftService } from './cash-shift.service';
+import { TableService } from './table.service';
 
 @Injectable()
 export class OrderService {
@@ -27,6 +28,7 @@ export class OrderService {
     private readonly productRepo: Repository<ProductEntity>,
     private readonly ordersGateway: OrdersGateway,
     private readonly cashShiftService: CashShiftService,
+    private readonly tableService: TableService,
   ) {}
 
   /** Sipariş kalemlerine ürünün kategori UUID'sini ekler (print-agent kategori->yazıcı eşlemesi için). */
@@ -75,6 +77,9 @@ export class OrderService {
   }
 
   async create(restaurantId: string, dto: CreateOrderDto): Promise<OrderEntity> {
+    const table = await this.tableRepo.findOne({ where: { id: dto.tableId, restaurantId } });
+    if (!table) throw new NotFoundException('Table not found');
+    this.tableService.assertStaffMayUseTable(table, dto.userId ?? null);
     await this.cashShiftService.requireCurrent(restaurantId);
     const order = this.orderRepo.create({
       restaurantId,
@@ -96,14 +101,13 @@ export class OrderService {
     );
     await this.itemRepo.save(items);
     const created = await this.findOne(saved.id, restaurantId);
-    const [table, waiter] = await Promise.all([
-      this.tableRepo.findOne({ where: { id: dto.tableId, restaurantId } }),
-      dto.userId ? this.staffRepo.findOne({ where: { id: dto.userId, restaurantId } }) : Promise.resolve(null),
-    ]);
+    const waiter = dto.userId
+      ? await this.staffRepo.findOne({ where: { id: dto.userId, restaurantId } })
+      : null;
     const payload = {
       ...JSON.parse(JSON.stringify(created)),
       restaurantId,
-      tableName: table?.name ?? null,
+      tableName: table.name ?? null,
       waiterName: waiter?.name ?? null,
     } as Record<string, unknown>;
     const pItems = payload.items as Array<{ productId?: string } & Record<string, unknown>> | undefined;
@@ -131,12 +135,18 @@ export class OrderService {
     if (fromTable.status === 'checkout' || toTable.status === 'checkout') {
       throw new BadRequestException('Hesap kesimindeki masa tasinamaz');
     }
+    this.tableService.assertTableFreeForMergeOrMove(toTable);
     const result = await this.orderRepo.update(
       { restaurantId, tableId: fromTableId, status: 'active' },
       { tableId: toTableId },
     );
     const moved = result.affected ?? 0;
     if (moved > 0) {
+      await this.tableRepo.update(
+        { id: fromTableId, restaurantId },
+        { sessionStaffId: null, sessionStaffName: null, sessionLockedAt: null },
+      );
+      void this.ordersGateway.emitTableSessionPresence(restaurantId).catch(() => undefined);
       this.ordersGateway.emitOrdersMoved(restaurantId, { fromTableId, toTableId });
       this.ordersGateway.emitOrdersUpdated(restaurantId);
     }
@@ -150,6 +160,11 @@ export class OrderService {
       { status: 'closed' },
     );
     const closed = result.affected ?? 0;
+    await this.tableRepo.update(
+      { id: tableId, restaurantId },
+      { sessionStaffId: null, sessionStaffName: null, sessionLockedAt: null },
+    );
+    void this.ordersGateway.emitTableSessionPresence(restaurantId).catch(() => undefined);
     if (closed > 0) {
       this.ordersGateway.emitOrdersUpdated(restaurantId);
     }
