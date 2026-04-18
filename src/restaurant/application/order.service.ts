@@ -105,6 +105,9 @@ export class OrderService {
         note: i.note ?? undefined,
         status: i.status,
         createdAt: i.createdAt,
+        cancelReason: i.cancelReason ?? undefined,
+        cancelledBy: i.cancelledBy ?? undefined,
+        cancelledAt: i.cancelledAt?.toISOString(),
       })),
     };
   }
@@ -376,7 +379,8 @@ export class OrderService {
   async cancelOrderItem(
     restaurantId: string,
     itemId: string,
-    _reason?: string,
+    reason?: string,
+    cancelledByName?: string,
   ): Promise<{ ok: true }> {
     await this.cashShiftService.requireCurrent(restaurantId);
     const item = await this.itemRepo.findOne({
@@ -403,6 +407,9 @@ export class OrderService {
     }
 
     item.status = 'cancelled';
+    item.cancelReason = (reason ?? '').trim() || null;
+    item.cancelledBy = (cancelledByName ?? '').trim() || null;
+    item.cancelledAt = new Date();
     await this.itemRepo.save(item);
     await this.orderRepo.update(
       { id: order.id, restaurantId },

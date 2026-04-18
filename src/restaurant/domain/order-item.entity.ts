@@ -40,6 +40,15 @@ export class OrderItemEntity {
   @Column({ default: 'pending' })
   status: string;
 
+  @Column({ name: 'cancel_reason', type: 'varchar', length: 500, nullable: true })
+  cancelReason: string | null;
+
+  @Column({ name: 'cancelled_by', type: 'varchar', length: 255, nullable: true })
+  cancelledBy: string | null;
+
+  @Column({ name: 'cancelled_at', type: 'timestamptz', nullable: true })
+  cancelledAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

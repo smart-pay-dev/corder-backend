@@ -8,6 +8,7 @@ import { MoveOrderItemsDto } from './dto/move-order-items.dto';
 import { CancelOrderItemDto } from './dto/cancel-order-item.dto';
 import { RestaurantJwtGuard } from '../infrastructure/restaurant-jwt.guard';
 import { RestaurantId } from '../infrastructure/restaurant-id.decorator';
+import { RestaurantUser } from '../infrastructure/restaurant-user.decorator';
 
 @Controller('restaurant/orders')
 @UseGuards(RestaurantJwtGuard)
@@ -44,8 +45,12 @@ export class OrdersController {
   }
 
   @Post('cancel-item')
-  cancelItem(@RestaurantId() restaurantId: string, @Body() dto: CancelOrderItemDto) {
-    return this.service.cancelOrderItem(restaurantId, dto.itemId, dto.reason);
+  cancelItem(
+    @RestaurantId() restaurantId: string,
+    @Body() dto: CancelOrderItemDto,
+    @RestaurantUser() user: { name: string },
+  ) {
+    return this.service.cancelOrderItem(restaurantId, dto.itemId, dto.reason, user.name);
   }
 
   @Patch('move')

@@ -58,6 +58,10 @@ export class CompletedOrderDto {
   @IsString()
   userId: string;
 
+  @IsOptional()
+  @IsString()
+  userName?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CompletedOrderItemDto)
