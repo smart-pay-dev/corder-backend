@@ -31,9 +31,9 @@ export class LedgerEntryEntity {
   @JoinColumn({ name: 'customer_id' })
   customer: LedgerCustomerEntity;
 
-  /** borc = masa cariye; tahsilat = odeme */
+  /** borc = masa cariye; tahsilat = odeme; credit = borc iptali (adisyon geri al) */
   @Column({ name: 'entry_type', type: 'varchar', length: 20 })
-  entryType: 'debt' | 'payment';
+  entryType: 'debt' | 'payment' | 'credit';
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;

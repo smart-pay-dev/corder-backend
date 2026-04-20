@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, Repository } from 'typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
 import { OrderEntity } from '../domain/order.entity';
 import { OrderItemEntity } from '../domain/order-item.entity';
 import { TableEntity } from '../domain/table.entity';
@@ -765,6 +765,104 @@ export class OrderService {
 
     this.ordersGateway.emitOrdersUpdated(restaurantId);
     return { ok: true, amount: total };
+  }
+
+  /** Cariye yazılmış satırı adisyona geri alır; cari borcuna `credit` kaydı düşer. */
+  async revertLedgerOrderItem(restaurantId: string, itemId: string): Promise<{ ok: true; amount: number }> {
+    await this.cashShiftService.requireCurrent(restaurantId);
+    let amountOut = 0;
+    await this.orderRepo.manager.transaction(async (em) => {
+      const item = await em.findOne(OrderItemEntity, {
+        where: { id: itemId },
+        relations: ['order', 'order.table'],
+      });
+      if (!item?.order) {
+        throw new NotFoundException('Kalem bulunamadi');
+      }
+      const order = item.order;
+      if (order.restaurantId !== restaurantId) {
+        throw new BadRequestException('Gecersiz kalem');
+      }
+      if (order.status !== 'active') {
+        throw new BadRequestException('Siparis aktif degil');
+      }
+      if (item.status !== 'ledger') {
+        throw new BadRequestException('Sadece cariye yazilmis satirlar geri alinabilir');
+      }
+      const table = await this.tableRepo.findOne({
+        where: { id: order.tableId, restaurantId },
+      });
+      if (!table) {
+        throw new NotFoundException('Masa bulunamadi');
+      }
+      if (table.status === 'checkout') {
+        throw new BadRequestException('Hesap kesiminde geri alinamaz');
+      }
+
+      const debtEntry = await this.ledgerService.findStandaloneDebtEntryForOrderItem(
+        em,
+        restaurantId,
+        itemId,
+      );
+      if (!debtEntry) {
+        throw new BadRequestException('Cari borc kaydi bulunamadi; manuel duzeltme gerekebilir');
+      }
+
+      const lineAmount = Number(item.price) * item.quantity;
+      if (!Number.isFinite(lineAmount) || lineAmount <= 0) {
+        throw new BadRequestException('Tutar gecersiz');
+      }
+      amountOut = lineAmount;
+
+      const tableName = (table.name ?? '').trim() || null;
+      await this.ledgerService.recordStandaloneCredit(em, {
+        restaurantId,
+        customerId: debtEntry.customerId,
+        amount: lineAmount,
+        description: `Adisyon geri al: ${item.productName} x${item.quantity}`,
+        tableId: order.tableId,
+        tableName,
+        snapshot: {
+          revertedOrderItemId: itemId,
+          originalDebtEntryId: debtEntry.id,
+          productName: item.productName,
+          quantity: item.quantity,
+        },
+      });
+
+      const noteN = (item.note ?? '').trim();
+      const priceN = Number(item.price);
+      const siblings = await em.find(OrderItemEntity, {
+        where: {
+          orderId: item.orderId,
+          productId: item.productId,
+          status: Not(In(['cancelled', 'ledger'])),
+        },
+      });
+      const partner = siblings
+        .filter(
+          (s) =>
+            s.id !== item.id &&
+            (s.note ?? '').trim() === noteN &&
+            Number(s.price) === priceN,
+        )
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
+
+      const now = new Date();
+      if (partner) {
+        await em.delete(OrderItemEntity, { id: item.id });
+        partner.quantity += item.quantity;
+        await em.save(OrderItemEntity, partner);
+      } else {
+        item.status = 'sent';
+        await em.save(OrderItemEntity, item);
+      }
+
+      await em.update(OrderEntity, { id: order.id, restaurantId }, { updatedAt: now });
+    });
+
+    this.ordersGateway.emitOrdersUpdated(restaurantId);
+    return { ok: true, amount: amountOut };
   }
 
   /** Print-agent HTTP: WebSocket kaçırsa bile mutfak fişi buradan tamamlanır. */

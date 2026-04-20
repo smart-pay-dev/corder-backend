@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { LedgerCustomerEntity } from '../domain/ledger-customer.entity';
 import { LedgerEntryEntity } from '../domain/ledger-entry.entity';
 
@@ -37,15 +37,25 @@ export class LedgerService {
         `SUM(CASE WHEN e.entry_type = 'payment' THEN e.amount::numeric ELSE 0 END)`,
         'paySum',
       )
+      .addSelect(
+        `SUM(CASE WHEN e.entry_type = 'credit' THEN e.amount::numeric ELSE 0 END)`,
+        'creditSum',
+      )
       .where('e.restaurant_id = :restaurantId', { restaurantId })
       .andWhere('e.customer_id IN (:...ids)', { ids })
       .groupBy('e.customer_id')
-      .getRawMany<{ customerId: string; debtSum: string | null; paySum: string | null }>();
+      .getRawMany<{
+        customerId: string;
+        debtSum: string | null;
+        paySum: string | null;
+        creditSum: string | null;
+      }>();
     const balMap = new Map<string, number>();
     for (const r of rows) {
       const d = Number(r.debtSum || 0);
       const p = Number(r.paySum || 0);
-      balMap.set(r.customerId, d - p);
+      const c = Number(r.creditSum || 0);
+      balMap.set(r.customerId, d - p - c);
     }
     return customers.map((c) => ({
       id: c.id,
@@ -203,5 +213,68 @@ export class LedgerService {
       receivedByUserId: null,
     });
     await em.save(LedgerEntryEntity, row);
+  }
+
+  /** Adisyon satırı cariden geri alındığında borcu düşüren kayıt (completed_order_id = null). */
+  async recordStandaloneCredit(
+    em: EntityManager,
+    params: {
+      restaurantId: string;
+      customerId: string;
+      amount: number;
+      description: string;
+      tableId?: string | null;
+      tableName?: string | null;
+      snapshot?: unknown;
+    },
+  ): Promise<void> {
+    const amt = Number(params.amount);
+    if (!Number.isFinite(amt) || amt <= 0) throw new BadRequestException('Tutar gecersiz');
+    const cust = await em.findOne(LedgerCustomerEntity, {
+      where: { id: params.customerId, restaurantId: params.restaurantId },
+    });
+    if (!cust) throw new NotFoundException('Cari bulunamadi');
+    const row = em.create(LedgerEntryEntity, {
+      restaurantId: params.restaurantId,
+      customerId: params.customerId,
+      entryType: 'credit',
+      amount: amt,
+      description: (params.description ?? '').trim() || 'Adisyon cari geri al',
+      tableId: params.tableId?.trim() || null,
+      tableName: params.tableName?.trim() || null,
+      completedOrderId: null,
+      snapshot: params.snapshot ?? null,
+      receivedBy: null,
+      receivedByUserId: null,
+    });
+    await em.save(LedgerEntryEntity, row);
+  }
+
+  /**
+   * Tamamlanmamış masadan cari borç kaydında bu order_item id geçen en güncel satırı bulur.
+   * Snapshot `items[].orderItemId` veya eski `items[].id` ile eşleşir.
+   */
+  async findStandaloneDebtEntryForOrderItem(
+    em: EntityManager,
+    restaurantId: string,
+    orderItemId: string,
+  ): Promise<LedgerEntryEntity | null> {
+    const rows = await em.find(LedgerEntryEntity, {
+      where: {
+        restaurantId,
+        completedOrderId: IsNull(),
+        entryType: 'debt',
+      },
+      order: { createdAt: 'DESC' },
+      take: 300,
+    });
+    for (const e of rows) {
+      const snap = e.snapshot as { items?: Array<{ orderItemId?: string; id?: string }> } | null;
+      const items = snap?.items ?? [];
+      if (items.some((it) => (it.orderItemId ?? it.id) === orderItemId)) {
+        return e;
+      }
+    }
+    return null;
   }
 }

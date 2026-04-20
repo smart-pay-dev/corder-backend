@@ -7,6 +7,7 @@ import { PrintReceiptDto } from './dto/print-receipt.dto';
 import { MoveOrderItemsDto } from './dto/move-order-items.dto';
 import { CancelOrderItemDto } from './dto/cancel-order-item.dto';
 import { AssignItemsToLedgerDto } from './dto/assign-items-to-ledger.dto';
+import { RevertLedgerItemDto } from './dto/revert-ledger-item.dto';
 import { RestaurantJwtGuard } from '../infrastructure/restaurant-jwt.guard';
 import { RestaurantId } from '../infrastructure/restaurant-id.decorator';
 import { RestaurantUser } from '../infrastructure/restaurant-user.decorator';
@@ -61,6 +62,11 @@ export class OrdersController {
     @RestaurantUser() user: { name: string },
   ) {
     return this.service.assignItemsToLedger(restaurantId, dto.lines, dto.ledgerCustomerId, user.name);
+  }
+
+  @Post('revert-ledger-item')
+  revertLedgerItem(@RestaurantId() restaurantId: string, @Body() dto: RevertLedgerItemDto) {
+    return this.service.revertLedgerOrderItem(restaurantId, dto.itemId);
   }
 
   @Patch('move')
