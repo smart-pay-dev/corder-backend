@@ -3,11 +3,14 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   CreateDateColumn,
   Index,
 } from 'typeorm';
 import { RestaurantEntity } from '../../platform/domain/restaurant.entity';
+import { OpenAccountItemEntity } from './open-account-item.entity';
+import { OpenAccountPaymentEntity } from './open-account-payment.entity';
 
 @Entity('open_accounts')
 @Index(['restaurantId'])
@@ -48,5 +51,11 @@ export class OpenAccountEntity {
 
   @Column({ name: 'paid_at', type: 'timestamptz', nullable: true })
   paidAt: Date | null;
+
+  @OneToMany(() => OpenAccountItemEntity, (i) => i.openAccount)
+  items: OpenAccountItemEntity[];
+
+  @OneToMany(() => OpenAccountPaymentEntity, (p) => p.openAccount)
+  payments: OpenAccountPaymentEntity[];
 }
 

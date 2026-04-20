@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { CompletedOrderEntity } from '../domain/completed-order.entity';
 import { CreateCompletedOrderDto } from '../api/dto/create-completed-order.dto';
 import { UpdateCompletedOrderDto } from '../api/dto/update-completed-order.dto';
+import { LedgerService } from './ledger.service';
 
 interface ListFilters {
   from?: Date;
@@ -19,28 +20,44 @@ export class CompletedOrdersService {
   constructor(
     @InjectRepository(CompletedOrderEntity)
     private readonly repo: Repository<CompletedOrderEntity>,
+    private readonly ledgerService: LedgerService,
   ) {}
 
   async create(restaurantId: string, dto: CreateCompletedOrderDto): Promise<CompletedOrderEntity> {
-    const entity = this.repo.create({
-      restaurantId,
-      tableName: dto.tableName,
-      section: dto.section,
-      waiter: dto.waiter,
-      totalAmount: dto.totalAmount,
-      discountAmount: dto.discountAmount,
-      netAmount: dto.netAmount,
-      closedBy: dto.closedBy,
-      openedAt: new Date(dto.openedAt),
-      closedAt: new Date(dto.closedAt),
-      paymentMethod: dto.payment.method,
-      paymentSplit: dto.payment.splitDetails ?? null,
-      paymentDiscount: dto.payment.discount ?? null,
-      paymentTip: dto.payment.tip ?? 0,
-      ordersSnapshot: dto.orders,
-      paymentSnapshot: dto.payment,
+    return this.repo.manager.transaction(async (em) => {
+      const entity = em.create(CompletedOrderEntity, {
+        restaurantId,
+        tableName: dto.tableName,
+        section: dto.section,
+        waiter: dto.waiter,
+        totalAmount: dto.totalAmount,
+        discountAmount: dto.discountAmount,
+        netAmount: dto.netAmount,
+        closedBy: dto.closedBy,
+        openedAt: new Date(dto.openedAt),
+        closedAt: new Date(dto.closedAt),
+        paymentMethod: dto.payment.method,
+        paymentSplit: dto.payment.splitDetails ?? null,
+        paymentDiscount: dto.payment.discount ?? null,
+        paymentTip: dto.payment.tip ?? 0,
+        ordersSnapshot: dto.orders,
+        paymentSnapshot: dto.payment,
+      });
+      const saved = await em.save(CompletedOrderEntity, entity);
+      if (dto.ledgerCustomerId) {
+        await this.ledgerService.recordDebtInTransaction(em, {
+          restaurantId,
+          customerId: dto.ledgerCustomerId,
+          amount: dto.netAmount,
+          description: `${dto.tableName} masasi hesabi`,
+          tableId: dto.payment.tableId ?? null,
+          tableName: dto.tableName,
+          completedOrderId: saved.id,
+          snapshot: dto.orders,
+        });
+      }
+      return saved;
     });
-    return this.repo.save(entity);
   }
 
   async list(restaurantId: string, filters: ListFilters): Promise<CompletedOrderEntity[]> {
@@ -127,4 +144,3 @@ export class CompletedOrdersService {
     return this.repo.save(row);
   }
 }
-

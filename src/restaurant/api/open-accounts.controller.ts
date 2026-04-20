@@ -22,9 +22,16 @@ export class OpenAccountsController {
     body: {
       customerName: string;
       customerPhone?: string;
-      amount: number;
-      description: string;
+      amount?: number;
+      description?: string;
       createdBy?: string;
+      items?: Array<{
+        productName: string;
+        quantity: number;
+        price: number;
+        productId?: string;
+        note?: string;
+      }>;
     },
   ) {
     return this.service.create(restaurantId, {
@@ -33,6 +40,7 @@ export class OpenAccountsController {
       amount: body.amount,
       description: body.description,
       createdBy: body.createdBy ?? user.name,
+      items: body.items,
     });
   }
 
@@ -40,9 +48,9 @@ export class OpenAccountsController {
   pay(
     @Param('id') id: string,
     @RestaurantId() restaurantId: string,
+    @RestaurantUser() user: { id: string; name: string },
     @Body() body: { amount: number },
   ) {
-    return this.service.pay(restaurantId, id, body.amount);
+    return this.service.pay(restaurantId, id, body.amount, user.name, user.id);
   }
 }
-

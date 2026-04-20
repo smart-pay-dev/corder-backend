@@ -6,6 +6,7 @@ import {
   IsString,
   ValidateNested,
   IsEnum,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -178,5 +179,10 @@ export class CreateCompletedOrderDto {
 
   @IsDateString()
   closedAt: string;
+
+  @IsOptional()
+  @IsUUID()
+  /** Hesap `cari` ile kapatilirken borc yazilacak cari musteri. */
+  ledgerCustomerId?: string;
 }
 
