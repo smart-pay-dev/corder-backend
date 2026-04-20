@@ -37,6 +37,20 @@ export class ProductService {
     return p;
   }
 
+  private normalizeIngredients(
+    raw: { materialId: string; quantity: number }[] | null | undefined,
+  ): { materialId: string; quantity: number }[] | null {
+    if (raw == null) return null;
+    const out: { materialId: string; quantity: number }[] = [];
+    for (const row of raw) {
+      if (!row?.materialId) continue;
+      const q = Number(row.quantity);
+      if (!Number.isFinite(q) || q <= 0) continue;
+      out.push({ materialId: String(row.materialId).trim(), quantity: q });
+    }
+    return out.length ? out : null;
+  }
+
   async create(restaurantId: string, dto: CreateProductDto): Promise<ProductEntity> {
     const cat = await this.categoryRepo.findOne({ where: { id: dto.categoryId, restaurantId } });
     if (!cat) throw new NotFoundException('Category not found');
@@ -48,6 +62,7 @@ export class ProductService {
     entity.imageUrl = dto.imageUrl ?? null;
     entity.inStock = dto.inStock ?? true;
     entity.order = dto.order ?? 0;
+    entity.ingredients = this.normalizeIngredients(dto.ingredients ?? null);
     const saved = await this.repo.save(entity);
     return this.findOne(saved.id, restaurantId);
   }
@@ -60,6 +75,9 @@ export class ProductService {
     if (dto.imageUrl !== undefined) entity.imageUrl = dto.imageUrl;
     if (dto.inStock !== undefined) entity.inStock = dto.inStock;
     if (dto.order !== undefined) entity.order = dto.order;
+    if (dto.ingredients !== undefined) {
+      entity.ingredients = this.normalizeIngredients(dto.ingredients);
+    }
     await this.repo.save(entity);
     return this.findOne(id, restaurantId);
   }

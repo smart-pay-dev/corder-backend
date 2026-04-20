@@ -1,4 +1,6 @@
-import { IsString, IsOptional, IsNumber, IsBoolean, Min, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsString, IsOptional, IsNumber, IsBoolean, IsArray, ValidateNested, Min, MinLength } from 'class-validator';
+import { ProductIngredientInputDto } from './product-ingredient-input.dto';
 
 export class UpdateProductDto {
   @IsOptional()
@@ -25,4 +27,10 @@ export class UpdateProductDto {
 
   @IsOptional()
   order?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductIngredientInputDto)
+  ingredients?: ProductIngredientInputDto[] | null;
 }

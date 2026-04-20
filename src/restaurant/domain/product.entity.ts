@@ -40,6 +40,10 @@ export class ProductEntity {
   @Column({ default: 0 })
   order: number;
 
+  /** Urun basina malzeme tuketimi (stok dusumu); { materialId, quantity }[] */
+  @Column({ type: 'jsonb', nullable: true })
+  ingredients: { materialId: string; quantity: number }[] | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

@@ -1,4 +1,6 @@
-import { IsString, IsUUID, IsOptional, IsNumber, IsBoolean, Min, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsString, IsUUID, IsOptional, IsNumber, IsBoolean, IsArray, ValidateNested, Min, MinLength } from 'class-validator';
+import { ProductIngredientInputDto } from './product-ingredient-input.dto';
 
 export class CreateProductDto {
   @IsUUID()
@@ -26,4 +28,10 @@ export class CreateProductDto {
 
   @IsOptional()
   order?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductIngredientInputDto)
+  ingredients?: ProductIngredientInputDto[] | null;
 }
