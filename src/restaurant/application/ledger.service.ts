@@ -19,14 +19,14 @@ export class LedgerService {
     private readonly entryRepo: Repository<LedgerEntryEntity>,
   ) {}
 
-  async listCustomers(restaurantId: string) {
-    const customers = await this.customerRepo.find({
-      where: { restaurantId },
-      order: { name: 'ASC' },
-    });
-    const ids = customers.map((c) => c.id);
-    if (!ids.length) return [];
-    const rows = await this.entryRepo
+  private async aggregateNetByCustomer(
+    restaurantId: string,
+    customerIds: string[],
+    range?: { from: Date; to: Date },
+  ): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    if (!customerIds.length) return out;
+    const qb = this.entryRepo
       .createQueryBuilder('e')
       .select('e.customer_id', 'customerId')
       .addSelect(
@@ -42,30 +42,62 @@ export class LedgerService {
         'creditSum',
       )
       .where('e.restaurant_id = :restaurantId', { restaurantId })
-      .andWhere('e.customer_id IN (:...ids)', { ids })
-      .groupBy('e.customer_id')
-      .getRawMany<{
-        customerId: string;
-        debtSum: string | null;
-        paySum: string | null;
-        creditSum: string | null;
-      }>();
-    const balMap = new Map<string, number>();
+      .andWhere('e.customer_id IN (:...ids)', { ids: customerIds })
+      .groupBy('e.customer_id');
+    if (range) {
+      qb.andWhere('e.created_at >= :from', { from: range.from });
+      qb.andWhere('e.created_at <= :to', { to: range.to });
+    }
+    const rows = await qb.getRawMany<{
+      customerId: string;
+      debtSum: string | null;
+      paySum: string | null;
+      creditSum: string | null;
+    }>();
     for (const r of rows) {
       const d = Number(r.debtSum || 0);
       const p = Number(r.paySum || 0);
       const c = Number(r.creditSum || 0);
-      balMap.set(r.customerId, d - p - c);
+      out.set(r.customerId, d - p - c);
     }
-    return customers.map((c) => ({
+    return out;
+  }
+
+  async listCustomers(restaurantId: string, fromIso?: string, toIso?: string) {
+    const customers = await this.customerRepo.find({
+      where: { restaurantId },
+      order: { name: 'ASC' },
+    });
+    const ids = customers.map((c) => c.id);
+    if (!ids.length) return [];
+    const lifetimeMap = await this.aggregateNetByCustomer(restaurantId, ids);
+
+    const from = (fromIso || '').trim() ? new Date(fromIso!.trim()) : undefined;
+    const to = (toIso || '').trim() ? new Date(toIso!.trim()) : undefined;
+    const useRange =
+      from != null &&
+      to != null &&
+      !Number.isNaN(from.getTime()) &&
+      !Number.isNaN(to.getTime()) &&
+      from.getTime() <= to.getTime();
+
+    const periodMap = useRange ? await this.aggregateNetByCustomer(restaurantId, ids, { from: from!, to: to! }) : null;
+
+    const row = (c: (typeof customers)[0]) => ({
       id: c.id,
       restaurantId: c.restaurantId,
       name: c.name,
       phone: c.phone,
       notes: c.notes,
       createdAt: c.createdAt.toISOString(),
-      balance: balMap.get(c.id) ?? 0,
-    }));
+      balance: lifetimeMap.get(c.id) ?? 0,
+      ...(useRange && periodMap ? { periodNet: periodMap.get(c.id) ?? 0 } : {}),
+    });
+
+    if (useRange && periodMap) {
+      return customers.filter((c) => periodMap.has(c.id)).map(row);
+    }
+    return customers.map(row);
   }
 
   async createCustomer(restaurantId: string, dto: CreateLedgerCustomerDto) {
@@ -89,12 +121,27 @@ export class LedgerService {
     };
   }
 
-  async listEntries(restaurantId: string, customerId: string) {
+  async listEntries(restaurantId: string, customerId: string, fromIso?: string, toIso?: string) {
     await this.assertCustomer(restaurantId, customerId);
-    const list = await this.entryRepo.find({
-      where: { restaurantId, customerId },
-      order: { createdAt: 'DESC' },
-    });
+    const from = (fromIso || '').trim() ? new Date(fromIso!.trim()) : undefined;
+    const to = (toIso || '').trim() ? new Date(toIso!.trim()) : undefined;
+    const useRange =
+      from != null &&
+      to != null &&
+      !Number.isNaN(from.getTime()) &&
+      !Number.isNaN(to.getTime()) &&
+      from.getTime() <= to.getTime();
+
+    const qb = this.entryRepo
+      .createQueryBuilder('e')
+      .where('e.restaurant_id = :restaurantId', { restaurantId })
+      .andWhere('e.customer_id = :customerId', { customerId })
+      .orderBy('e.created_at', 'DESC');
+    if (useRange) {
+      qb.andWhere('e.created_at >= :from', { from: from! });
+      qb.andWhere('e.created_at <= :to', { to: to! });
+    }
+    const list = await qb.getMany();
     return list.map((e) => ({
       id: e.id,
       entryType: e.entryType,

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { LedgerService } from '../application/ledger.service';
 import { RestaurantJwtGuard } from '../infrastructure/restaurant-jwt.guard';
 import { RestaurantId } from '../infrastructure/restaurant-id.decorator';
@@ -10,8 +10,12 @@ export class LedgerController {
   constructor(private readonly ledger: LedgerService) {}
 
   @Get()
-  list(@RestaurantId() restaurantId: string) {
-    return this.ledger.listCustomers(restaurantId);
+  list(
+    @RestaurantId() restaurantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.ledger.listCustomers(restaurantId, from, to);
   }
 
   @Post()
@@ -23,8 +27,13 @@ export class LedgerController {
   }
 
   @Get(':id/entries')
-  entries(@RestaurantId() restaurantId: string, @Param('id') id: string) {
-    return this.ledger.listEntries(restaurantId, id);
+  entries(
+    @RestaurantId() restaurantId: string,
+    @Param('id') id: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.ledger.listEntries(restaurantId, id, from, to);
   }
 
   @Post(':id/payments')
