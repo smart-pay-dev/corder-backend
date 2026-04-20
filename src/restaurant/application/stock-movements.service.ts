@@ -35,37 +35,41 @@ export class StockMovementsService {
 
   async create(restaurantId: string, dto: CreateStockMovementDto) {
     if (dto.quantity <= 0) throw new BadRequestException('Miktar pozitif olmalıdır.');
-    const material = await this.materials.findOne({
-      where: { id: dto.materialId, restaurantId },
+
+    return await this.repo.manager.transaction(async (em) => {
+      const material = await em.findOne(StockMaterialEntity, {
+        where: { id: dto.materialId, restaurantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!material) throw new NotFoundException('Malzeme bulunamadı.');
+
+      const prev = Number(material.currentStock ?? 0);
+      let next = prev;
+      if (dto.type === 'in') {
+        next = prev + dto.quantity;
+      } else {
+        next = Math.max(0, prev - dto.quantity);
+      }
+
+      material.currentStock = next;
+      await em.save(StockMaterialEntity, material);
+
+      const movement = em.create(StockMovementEntity, {
+        restaurantId,
+        materialId: material.id,
+        materialName: dto.materialName ?? material.name,
+        type: dto.type,
+        quantity: dto.quantity,
+        previousStock: prev,
+        newStock: next,
+        unitCost: dto.unitCost ?? null,
+        totalCost: dto.totalCost ?? null,
+        supplierId: dto.supplierId ?? null,
+        reason: dto.reason ?? null,
+        createdBy: dto.createdBy,
+      });
+      return em.save(StockMovementEntity, movement);
     });
-    if (!material) throw new NotFoundException('Malzeme bulunamadı.');
-
-    const prev = Number(material.currentStock ?? 0);
-    let next = prev;
-    if (dto.type === 'in') {
-      next = prev + dto.quantity;
-    } else {
-      next = Math.max(0, prev - dto.quantity);
-    }
-
-    material.currentStock = next;
-    await this.materials.save(material);
-
-    const movement = this.repo.create({
-      restaurantId,
-      materialId: material.id,
-      materialName: dto.materialName ?? material.name,
-      type: dto.type,
-      quantity: dto.quantity,
-      previousStock: prev,
-      newStock: next,
-      unitCost: dto.unitCost ?? null,
-      totalCost: dto.totalCost ?? null,
-      supplierId: dto.supplierId ?? null,
-      reason: dto.reason ?? null,
-      createdBy: dto.createdBy,
-    });
-    return this.repo.save(movement);
   }
 }
 
