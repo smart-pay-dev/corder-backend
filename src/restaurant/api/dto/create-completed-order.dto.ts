@@ -184,5 +184,10 @@ export class CreateCompletedOrderDto {
   @IsUUID()
   /** Hesap `cari` ile kapatilirken borc yazilacak cari musteri. */
   ledgerCustomerId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  /** Cariye yazilacak borc (karma odemede cari kismi). Verilmezse `ledgerCustomerId` ile tam `netAmount`. */
+  ledgerDebtAmount?: number;
 }
 

@@ -45,16 +45,22 @@ export class CompletedOrdersService {
       });
       const saved = await em.save(CompletedOrderEntity, entity);
       if (dto.ledgerCustomerId) {
-        await this.ledgerService.recordDebtInTransaction(em, {
-          restaurantId,
-          customerId: dto.ledgerCustomerId,
-          amount: dto.netAmount,
-          description: `${dto.tableName} masasi hesabi`,
-          tableId: dto.payment.tableId ?? null,
-          tableName: dto.tableName,
-          completedOrderId: saved.id,
-          snapshot: dto.orders,
-        });
+        let debt = dto.netAmount;
+        if (dto.ledgerDebtAmount != null && Number.isFinite(Number(dto.ledgerDebtAmount))) {
+          debt = Math.min(dto.netAmount, Math.max(0, Number(dto.ledgerDebtAmount)));
+        }
+        if (debt > 0) {
+          await this.ledgerService.recordDebtInTransaction(em, {
+            restaurantId,
+            customerId: dto.ledgerCustomerId,
+            amount: debt,
+            description: `${dto.tableName} masasi hesabi`,
+            tableId: dto.payment.tableId ?? null,
+            tableName: dto.tableName,
+            completedOrderId: saved.id,
+            snapshot: dto.orders,
+          });
+        }
       }
       return saved;
     });
