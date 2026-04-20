@@ -58,6 +58,11 @@ export class OrderService {
     }
   }
 
+  /** Fiş / mutfak çıktısında ve masa tutarında sayılan satırlar (iptal ve cariye yazılan hariç). */
+  private itemOnActiveBill(status: string): boolean {
+    return status !== 'cancelled' && status !== 'ledger';
+  }
+
   private async staffNameMap(
     restaurantId: string,
     userIds: (string | null | undefined)[],
@@ -276,6 +281,9 @@ export class OrderService {
       if (it.status === 'cancelled') {
         throw new BadRequestException('Iptal edilmis kalem tasinamaz');
       }
+      if (it.status === 'ledger') {
+        throw new BadRequestException('Cariye yazilmis kalem tasinamaz');
+      }
     }
 
     const [fromTable, toTable] = await Promise.all([
@@ -396,6 +404,9 @@ export class OrderService {
     }
     if (order.status !== 'active') {
       throw new BadRequestException('Siparis aktif degil');
+    }
+    if (item.status === 'ledger') {
+      throw new BadRequestException('Cariye yazilmis kalem iptal edilemez');
     }
     if (item.status === 'cancelled') {
       throw new BadRequestException('Kalem zaten iptal');
@@ -531,7 +542,7 @@ export class OrderService {
         throw new NotFoundException('Sipariş bulunamadı');
       }
       tableName = o.table?.name ?? '-';
-      const rawItems = o.items?.filter((i) => i.status !== 'cancelled') ?? [];
+      const rawItems = o.items?.filter((i) => this.itemOnActiveBill(i.status)) ?? [];
       items = rawItems.map((i) => ({
         productName: i.productName,
         quantity: i.quantity,
@@ -553,7 +564,7 @@ export class OrderService {
       }
       const table = await this.tableRepo.findOne({ where: { id: dto.tableId, restaurantId } });
       tableName = table?.name ?? dto.tableId;
-      const flat = orders.flatMap((o) => o.items.filter((i) => i.status !== 'cancelled'));
+      const flat = orders.flatMap((o) => o.items.filter((i) => this.itemOnActiveBill(i.status)));
       items = flat.map((i) => ({
         productName: i.productName,
         quantity: i.quantity,
@@ -620,33 +631,36 @@ export class OrderService {
   }
 
   /**
-   * Secilen adisyon satirlarini cari musteriye borc olarak yazar; kalemler adisyondan dusulur (iptal, sebep cari).
+   * Seçilen adisyon satırlarından (isteğe bağlı adet ile) cari borcu oluşturur.
+   * Tamamı cariye giden satır `ledger` olur; kısmi bölünmede kalan miktar satırda kalır, cari kısım yeni `ledger` satırı olarak eklenir.
    */
   async assignItemsToLedger(
     restaurantId: string,
-    itemIds: string[],
+    lines: { itemId: string; quantity?: number }[],
     ledgerCustomerId: string,
-    staffName: string,
+    _staffName: string,
   ): Promise<{ ok: true; amount: number }> {
-    const uniqueIds = [...new Set(itemIds)];
-    if (!uniqueIds.length) {
-      throw new BadRequestException('Kalem secilmedi');
+    const seen = new Set<string>();
+    for (const l of lines) {
+      if (seen.has(l.itemId)) {
+        throw new BadRequestException('Ayni kalem iki kez secilemez');
+      }
+      seen.add(l.itemId);
     }
 
     let total = 0;
     await this.orderRepo.manager.transaction(async (em) => {
-      const items = await em.find(OrderItemEntity, {
-        where: { id: In(uniqueIds) },
-        relations: ['order', 'order.table'],
-      });
-      if (items.length !== uniqueIds.length) {
-        throw new NotFoundException('Bazi kalemler bulunamadi');
-      }
-      const tableIds = new Set<string>();
-      const snapshotLines: Array<Record<string, unknown>> = [];
-      for (const item of items) {
+      const staged: { line: { itemId: string; quantity?: number }; item: OrderItemEntity }[] = [];
+      for (const line of lines) {
+        const item = await em.findOne(OrderItemEntity, {
+          where: { id: line.itemId },
+          relations: ['order', 'order.table'],
+        });
+        if (!item?.order) {
+          throw new NotFoundException('Kalem bulunamadi');
+        }
         const order = item.order;
-        if (!order || order.restaurantId !== restaurantId) {
+        if (order.restaurantId !== restaurantId) {
           throw new BadRequestException('Gecersiz kalem');
         }
         if (order.status !== 'active') {
@@ -655,29 +669,80 @@ export class OrderService {
         if (item.status === 'cancelled') {
           throw new BadRequestException('Kalem iptal edilmis');
         }
-        tableIds.add(order.tableId);
-        total += Number(item.price) * item.quantity;
-        snapshotLines.push({
-          id: item.id,
-          productId: item.productId,
-          productName: item.productName,
-          price: Number(item.price),
-          quantity: item.quantity,
-          note: item.note ?? null,
-        });
+        if (item.status === 'ledger') {
+          throw new BadRequestException('Kalem zaten cariye yazilmis');
+        }
+        staged.push({ line, item });
       }
+
+      const tableIds = new Set(staged.map((s) => s.item.order!.tableId));
       if (tableIds.size !== 1) {
-        throw new BadRequestException('Tum kalemler ayni masa siparisinde olmali');
+        throw new BadRequestException('Tum kalemler ayni masada olmali');
       }
-      const tableId = [...tableIds][0];
-      const table = items[0].order?.table;
+      const table = staged[0].item.order?.table;
       if (!table || table.restaurantId !== restaurantId) {
         throw new NotFoundException('Masa bulunamadi');
       }
       if (table.status === 'checkout') {
         throw new BadRequestException('Hesap kesiminde cariye atilamaz');
       }
+      const tableId = table.id;
       const tableName = (table.name ?? '').trim() || null;
+
+      const snapshotLines: Array<Record<string, unknown>> = [];
+      const now = new Date();
+
+      for (const { line, item } of staged) {
+        const q = item.quantity;
+        const reqQ =
+          line.quantity != null ? Math.floor(Number(line.quantity)) : q;
+        if (!Number.isInteger(reqQ) || reqQ < 1 || reqQ > q) {
+          throw new BadRequestException('Adet gecersiz');
+        }
+        const lineAmount = Number(item.price) * reqQ;
+        total += lineAmount;
+
+        if (reqQ < q) {
+          item.quantity = q - reqQ;
+          await em.save(OrderItemEntity, item);
+          const newRow = em.create(OrderItemEntity, {
+            orderId: item.orderId,
+            productId: item.productId,
+            productName: item.productName,
+            price: item.price,
+            quantity: reqQ,
+            note: item.note ?? undefined,
+            status: 'ledger',
+            cancelReason: null,
+            cancelledBy: null,
+            cancelledAt: null,
+          });
+          const savedNew = await em.save(OrderItemEntity, newRow);
+          snapshotLines.push({
+            orderItemId: savedNew.id,
+            productId: item.productId,
+            productName: item.productName,
+            price: Number(item.price),
+            quantity: reqQ,
+            note: item.note ?? null,
+          });
+        } else {
+          item.status = 'ledger';
+          item.cancelReason = null;
+          item.cancelledBy = null;
+          item.cancelledAt = null;
+          await em.save(OrderItemEntity, item);
+          snapshotLines.push({
+            orderItemId: item.id,
+            productId: item.productId,
+            productName: item.productName,
+            price: Number(item.price),
+            quantity: reqQ,
+            note: item.note ?? null,
+          });
+        }
+      }
+
       let desc = snapshotLines.map((l) => `${l.productName} x${l.quantity}`).join(', ');
       if (desc.length > 480) desc = desc.slice(0, 477) + '...';
       desc = `Adisyon cari: ${desc}`;
@@ -692,16 +757,7 @@ export class OrderService {
         snapshot: { items: snapshotLines, tableId, tableName },
       });
 
-      const now = new Date();
-      const cancelledBy = (staffName ?? '').trim() || 'Personel';
-      for (const item of items) {
-        item.status = 'cancelled';
-        item.cancelReason = 'Cariye atildi';
-        item.cancelledBy = cancelledBy;
-        item.cancelledAt = now;
-        await em.save(OrderItemEntity, item);
-      }
-      const orderIds = [...new Set(items.map((i) => i.orderId))];
+      const orderIds = new Set(staged.map((s) => s.item.orderId));
       for (const oid of orderIds) {
         await em.update(OrderEntity, { id: oid, restaurantId }, { updatedAt: now });
       }
@@ -726,7 +782,7 @@ export class OrderService {
 
     const out: Record<string, unknown>[] = [];
     for (const o of orders) {
-      const items = o.items?.filter((i) => i.status !== 'cancelled') ?? [];
+      const items = o.items?.filter((i) => this.itemOnActiveBill(i.status)) ?? [];
       if (!items.length) continue;
       const waiter = o.userId
         ? await this.staffRepo.findOne({ where: { id: o.userId, restaurantId } })

@@ -1,10 +1,24 @@
-import { ArrayMinSize, IsArray, IsUUID } from 'class-validator';
+import { ArrayMinSize, IsArray, IsInt, IsOptional, IsUUID, Min, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class AssignLedgerLineDto {
+  @IsUUID()
+  itemId: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  /** Belirtilmezse satirin tamami cariye yazilir. */
+  quantity?: number;
+}
 
 export class AssignItemsToLedgerDto {
   @IsArray()
   @ArrayMinSize(1)
-  @IsUUID('4', { each: true })
-  itemIds: string[];
+  @ValidateNested({ each: true })
+  @Type(() => AssignLedgerLineDto)
+  lines: AssignLedgerLineDto[];
 
   @IsUUID()
   ledgerCustomerId: string;

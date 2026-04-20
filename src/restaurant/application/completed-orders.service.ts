@@ -99,7 +99,7 @@ export class CompletedOrdersService {
     let sum = 0;
     for (const o of orders) {
       for (const i of o.items || []) {
-        if (i.status === 'cancelled') continue;
+        if (i.status === 'cancelled' || i.status === 'ledger') continue;
         sum += Number(i.price || 0) * Number(i.quantity || 0);
       }
     }

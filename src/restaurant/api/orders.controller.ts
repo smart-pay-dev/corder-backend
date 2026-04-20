@@ -60,7 +60,7 @@ export class OrdersController {
     @Body() dto: AssignItemsToLedgerDto,
     @RestaurantUser() user: { name: string },
   ) {
-    return this.service.assignItemsToLedger(restaurantId, dto.itemIds, dto.ledgerCustomerId, user.name);
+    return this.service.assignItemsToLedger(restaurantId, dto.lines, dto.ledgerCustomerId, user.name);
   }
 
   @Patch('move')
