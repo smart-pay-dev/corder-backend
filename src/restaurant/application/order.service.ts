@@ -12,6 +12,7 @@ import { PrintReceiptDto } from '../api/dto/print-receipt.dto';
 import { OrdersGateway } from '../api/orders.gateway';
 import { CashShiftService } from './cash-shift.service';
 import { TableService } from './table.service';
+import { LedgerService } from './ledger.service';
 
 @Injectable()
 export class OrderService {
@@ -29,6 +30,7 @@ export class OrderService {
     private readonly ordersGateway: OrdersGateway,
     private readonly cashShiftService: CashShiftService,
     private readonly tableService: TableService,
+    private readonly ledgerService: LedgerService,
   ) {}
 
   /** Sipariş kalemlerine ürünün kategori UUID'sini ekler (print-agent kategori->yazıcı eşlemesi için). */
@@ -615,6 +617,98 @@ export class OrderService {
     });
 
     return { ok: true, jobId };
+  }
+
+  /**
+   * Secilen adisyon satirlarini cari musteriye borc olarak yazar; kalemler adisyondan dusulur (iptal, sebep cari).
+   */
+  async assignItemsToLedger(
+    restaurantId: string,
+    itemIds: string[],
+    ledgerCustomerId: string,
+    staffName: string,
+  ): Promise<{ ok: true; amount: number }> {
+    const uniqueIds = [...new Set(itemIds)];
+    if (!uniqueIds.length) {
+      throw new BadRequestException('Kalem secilmedi');
+    }
+
+    let total = 0;
+    await this.orderRepo.manager.transaction(async (em) => {
+      const items = await em.find(OrderItemEntity, {
+        where: { id: In(uniqueIds) },
+        relations: ['order', 'order.table'],
+      });
+      if (items.length !== uniqueIds.length) {
+        throw new NotFoundException('Bazi kalemler bulunamadi');
+      }
+      const tableIds = new Set<string>();
+      const snapshotLines: Array<Record<string, unknown>> = [];
+      for (const item of items) {
+        const order = item.order;
+        if (!order || order.restaurantId !== restaurantId) {
+          throw new BadRequestException('Gecersiz kalem');
+        }
+        if (order.status !== 'active') {
+          throw new BadRequestException('Siparis aktif degil');
+        }
+        if (item.status === 'cancelled') {
+          throw new BadRequestException('Kalem iptal edilmis');
+        }
+        tableIds.add(order.tableId);
+        total += Number(item.price) * item.quantity;
+        snapshotLines.push({
+          id: item.id,
+          productId: item.productId,
+          productName: item.productName,
+          price: Number(item.price),
+          quantity: item.quantity,
+          note: item.note ?? null,
+        });
+      }
+      if (tableIds.size !== 1) {
+        throw new BadRequestException('Tum kalemler ayni masa siparisinde olmali');
+      }
+      const tableId = [...tableIds][0];
+      const table = items[0].order?.table;
+      if (!table || table.restaurantId !== restaurantId) {
+        throw new NotFoundException('Masa bulunamadi');
+      }
+      if (table.status === 'checkout') {
+        throw new BadRequestException('Hesap kesiminde cariye atilamaz');
+      }
+      const tableName = (table.name ?? '').trim() || null;
+      let desc = snapshotLines.map((l) => `${l.productName} x${l.quantity}`).join(', ');
+      if (desc.length > 480) desc = desc.slice(0, 477) + '...';
+      desc = `Adisyon cari: ${desc}`;
+
+      await this.ledgerService.recordStandaloneDebt(em, {
+        restaurantId,
+        customerId: ledgerCustomerId,
+        amount: total,
+        description: desc,
+        tableId,
+        tableName,
+        snapshot: { items: snapshotLines, tableId, tableName },
+      });
+
+      const now = new Date();
+      const cancelledBy = (staffName ?? '').trim() || 'Personel';
+      for (const item of items) {
+        item.status = 'cancelled';
+        item.cancelReason = 'Cariye atildi';
+        item.cancelledBy = cancelledBy;
+        item.cancelledAt = now;
+        await em.save(OrderItemEntity, item);
+      }
+      const orderIds = [...new Set(items.map((i) => i.orderId))];
+      for (const oid of orderIds) {
+        await em.update(OrderEntity, { id: oid, restaurantId }, { updatedAt: now });
+      }
+    });
+
+    this.ordersGateway.emitOrdersUpdated(restaurantId);
+    return { ok: true, amount: total };
   }
 
   /** Print-agent HTTP: WebSocket kaçırsa bile mutfak fişi buradan tamamlanır. */

@@ -6,6 +6,7 @@ import { CloseOrdersDto } from './dto/close-orders.dto';
 import { PrintReceiptDto } from './dto/print-receipt.dto';
 import { MoveOrderItemsDto } from './dto/move-order-items.dto';
 import { CancelOrderItemDto } from './dto/cancel-order-item.dto';
+import { AssignItemsToLedgerDto } from './dto/assign-items-to-ledger.dto';
 import { RestaurantJwtGuard } from '../infrastructure/restaurant-jwt.guard';
 import { RestaurantId } from '../infrastructure/restaurant-id.decorator';
 import { RestaurantUser } from '../infrastructure/restaurant-user.decorator';
@@ -51,6 +52,15 @@ export class OrdersController {
     @RestaurantUser() user: { name: string },
   ) {
     return this.service.cancelOrderItem(restaurantId, dto.itemId, dto.reason, user.name);
+  }
+
+  @Post('assign-to-ledger')
+  assignToLedger(
+    @RestaurantId() restaurantId: string,
+    @Body() dto: AssignItemsToLedgerDto,
+    @RestaurantUser() user: { name: string },
+  ) {
+    return this.service.assignItemsToLedger(restaurantId, dto.itemIds, dto.ledgerCustomerId, user.name);
   }
 
   @Patch('move')

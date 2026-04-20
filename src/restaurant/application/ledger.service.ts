@@ -169,4 +169,39 @@ export class LedgerService {
     });
     await em.save(LedgerEntryEntity, row);
   }
+
+  /** Tamamlanan siparis disinda, adisyon satirlarindan borc (completed_order_id = null). */
+  async recordStandaloneDebt(
+    em: EntityManager,
+    params: {
+      restaurantId: string;
+      customerId: string;
+      amount: number;
+      description: string;
+      tableId?: string | null;
+      tableName?: string | null;
+      snapshot: unknown;
+    },
+  ): Promise<void> {
+    const amt = Number(params.amount);
+    if (!Number.isFinite(amt) || amt <= 0) throw new BadRequestException('Borc tutari gecersiz');
+    const cust = await em.findOne(LedgerCustomerEntity, {
+      where: { id: params.customerId, restaurantId: params.restaurantId },
+    });
+    if (!cust) throw new NotFoundException('Cari bulunamadi');
+    const row = em.create(LedgerEntryEntity, {
+      restaurantId: params.restaurantId,
+      customerId: params.customerId,
+      entryType: 'debt',
+      amount: amt,
+      description: params.description.trim() || 'Urun cari',
+      tableId: params.tableId?.trim() || null,
+      tableName: params.tableName?.trim() || null,
+      completedOrderId: null,
+      snapshot: params.snapshot ?? null,
+      receivedBy: null,
+      receivedByUserId: null,
+    });
+    await em.save(LedgerEntryEntity, row);
+  }
 }
