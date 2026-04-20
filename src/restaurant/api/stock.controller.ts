@@ -5,6 +5,8 @@ import { RestaurantUser } from '../infrastructure/restaurant-user.decorator';
 import { StockMaterialsService } from '../application/stock-materials.service';
 import { SuppliersService } from '../application/suppliers.service';
 import { StockMovementsService } from '../application/stock-movements.service';
+import { CreateSupplierDto } from './dto/create-supplier.dto';
+import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { PurchaseOrdersService } from '../application/purchase-orders.service';
 import { InventoryCountsService } from '../application/inventory-counts.service';
 
@@ -74,18 +76,7 @@ export class StockController {
   }
 
   @Post('suppliers')
-  createSupplier(
-    @RestaurantId() restaurantId: string,
-    @Body()
-    body: {
-      name: string;
-      contactPerson?: string;
-      phone?: string;
-      email?: string;
-      address?: string;
-      notes?: string;
-    },
-  ) {
+  createSupplier(@RestaurantId() restaurantId: string, @Body() body: CreateSupplierDto) {
     return this.suppliers.create(restaurantId, body);
   }
 
@@ -93,16 +84,7 @@ export class StockController {
   updateSupplier(
     @RestaurantId() restaurantId: string,
     @Param('id') id: string,
-    @Body()
-    body: {
-      name?: string;
-      contactPerson?: string;
-      phone?: string;
-      email?: string;
-      address?: string;
-      notes?: string;
-      active?: boolean;
-    },
+    @Body() body: UpdateSupplierDto,
   ) {
     return this.suppliers.update(restaurantId, id, body);
   }
