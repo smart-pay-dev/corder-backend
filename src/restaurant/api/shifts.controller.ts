@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { CashShiftService } from '../application/cash-shift.service';
+import { CashShiftEntity } from '../domain/cash-shift.entity';
 import { OpenShiftDto } from './dto/open-shift.dto';
 import { CloseShiftDto } from './dto/close-shift.dto';
 import { RestaurantJwtGuard } from '../infrastructure/restaurant-jwt.guard';
@@ -55,17 +56,7 @@ export class ShiftsController {
     return this.toDto(shift);
   }
 
-  private toDto(shift: {
-    id: string;
-    openedBy: string;
-    openedAt: Date;
-    closedAt: Date | null;
-    closedBy: string | null;
-    status: string;
-    openingBalance: number;
-    closingBalance: number | null;
-    notes: string | null;
-  }) {
+  private toDto(shift: CashShiftEntity) {
     return {
       id: shift.id,
       openedBy: shift.openedBy,
@@ -76,15 +67,14 @@ export class ShiftsController {
       openingBalance: Number(shift.openingBalance),
       closingBalance: shift.closingBalance != null ? Number(shift.closingBalance) : null,
       notes: shift.notes,
-      // Panel uyumu için ek alanlar (backend'de tek kaynak; panel bunları kullanır)
-      cashIn: 0,
-      cashOut: 0,
-      totalRevenue: 0,
-      totalNakit: 0,
-      totalKart: 0,
-      totalYemekKarti: 0,
-      totalMultinet: 0,
-      transactionCount: 0,
+      cashIn: Number(shift.cashIn ?? 0),
+      cashOut: Number(shift.cashOut ?? 0),
+      totalRevenue: Number(shift.totalRevenue ?? 0),
+      totalNakit: Number(shift.totalNakit ?? 0),
+      totalKart: Number(shift.totalKart ?? 0),
+      totalYemekKarti: Number(shift.totalYemekKarti ?? 0),
+      totalMultinet: Number(shift.totalMultinet ?? 0),
+      transactionCount: shift.transactionCount ?? 0,
     };
   }
 }
