@@ -156,6 +156,8 @@ export class LedgerService {
       tableName?: string | null;
       completedOrderId: string;
       snapshot: unknown;
+      /** Panel kullanıcı adı vb.; cari hareket listesinde gosterilir. */
+      recordedBy?: string | null;
     },
   ): Promise<void> {
     const amt = Number(params.amount);
@@ -174,7 +176,7 @@ export class LedgerService {
       tableName: params.tableName?.trim() || null,
       completedOrderId: params.completedOrderId,
       snapshot: params.snapshot ?? null,
-      receivedBy: null,
+      receivedBy: (params.recordedBy ?? '').trim() || null,
       receivedByUserId: null,
     });
     await em.save(LedgerEntryEntity, row);
@@ -191,6 +193,7 @@ export class LedgerService {
       tableId?: string | null;
       tableName?: string | null;
       snapshot: unknown;
+      recordedBy?: string | null;
     },
   ): Promise<void> {
     const amt = Number(params.amount);
@@ -209,7 +212,7 @@ export class LedgerService {
       tableName: params.tableName?.trim() || null,
       completedOrderId: null,
       snapshot: params.snapshot ?? null,
-      receivedBy: null,
+      receivedBy: (params.recordedBy ?? '').trim() || null,
       receivedByUserId: null,
     });
     await em.save(LedgerEntryEntity, row);
@@ -226,6 +229,7 @@ export class LedgerService {
       tableId?: string | null;
       tableName?: string | null;
       snapshot?: unknown;
+      recordedBy?: string | null;
     },
   ): Promise<void> {
     const amt = Number(params.amount);
@@ -244,7 +248,7 @@ export class LedgerService {
       tableName: params.tableName?.trim() || null,
       completedOrderId: null,
       snapshot: params.snapshot ?? null,
-      receivedBy: null,
+      receivedBy: (params.recordedBy ?? '').trim() || null,
       receivedByUserId: null,
     });
     await em.save(LedgerEntryEntity, row);

@@ -59,6 +59,7 @@ export class CompletedOrdersService {
             tableName: dto.tableName,
             completedOrderId: saved.id,
             snapshot: dto.orders,
+            recordedBy: (dto.closedBy ?? '').trim() || null,
           });
         }
       }

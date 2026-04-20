@@ -638,7 +638,7 @@ export class OrderService {
     restaurantId: string,
     lines: { itemId: string; quantity?: number }[],
     ledgerCustomerId: string,
-    _staffName: string,
+    staffName: string,
   ): Promise<{ ok: true; amount: number }> {
     const seen = new Set<string>();
     for (const l of lines) {
@@ -755,6 +755,7 @@ export class OrderService {
         tableId,
         tableName,
         snapshot: { items: snapshotLines, tableId, tableName },
+        recordedBy: (staffName ?? '').trim() || null,
       });
 
       const orderIds = new Set(staged.map((s) => s.item.orderId));
@@ -768,7 +769,11 @@ export class OrderService {
   }
 
   /** Cariye yazılmış satırı adisyona geri alır; cari borcuna `credit` kaydı düşer. */
-  async revertLedgerOrderItem(restaurantId: string, itemId: string): Promise<{ ok: true; amount: number }> {
+  async revertLedgerOrderItem(
+    restaurantId: string,
+    itemId: string,
+    actorName: string,
+  ): Promise<{ ok: true; amount: number }> {
     await this.cashShiftService.requireCurrent(restaurantId);
     let amountOut = 0;
     await this.orderRepo.manager.transaction(async (em) => {
@@ -828,6 +833,7 @@ export class OrderService {
           productName: item.productName,
           quantity: item.quantity,
         },
+        recordedBy: (actorName ?? '').trim() || null,
       });
 
       const noteN = (item.note ?? '').trim();

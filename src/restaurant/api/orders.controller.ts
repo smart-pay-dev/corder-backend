@@ -65,8 +65,12 @@ export class OrdersController {
   }
 
   @Post('revert-ledger-item')
-  revertLedgerItem(@RestaurantId() restaurantId: string, @Body() dto: RevertLedgerItemDto) {
-    return this.service.revertLedgerOrderItem(restaurantId, dto.itemId);
+  revertLedgerItem(
+    @RestaurantId() restaurantId: string,
+    @Body() dto: RevertLedgerItemDto,
+    @RestaurantUser() user: { name: string },
+  ) {
+    return this.service.revertLedgerOrderItem(restaurantId, dto.itemId, user.name);
   }
 
   @Patch('move')
