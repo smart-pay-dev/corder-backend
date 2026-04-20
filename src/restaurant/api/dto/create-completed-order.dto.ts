@@ -141,6 +141,15 @@ export class CompletedPaymentDto {
 
   @IsDateString()
   createdAt: string;
+
+  @IsOptional()
+  @IsUUID()
+  /** Hesap `cari` ile kapatildiginda; tamamlanan islem listesinde gosterim icin. */
+  ledgerCustomerId?: string;
+
+  @IsOptional()
+  @IsString()
+  ledgerCustomerName?: string;
 }
 
 export class CreateCompletedOrderDto {
