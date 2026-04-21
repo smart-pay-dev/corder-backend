@@ -49,9 +49,18 @@ export class TechnicalController {
     @RestaurantId() restaurantId: string,
     @Query('category') category?: AuditCategory,
     @Query('limit') limit?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     const n = limit ? Number(limit) : 200;
-    return this.audits.list(restaurantId, category, n);
+    const fromDate = from ? new Date(from) : undefined;
+    const toDate = to ? new Date(to) : undefined;
+    return this.audits.list(restaurantId, {
+      category,
+      limit: n,
+      from: fromDate && Number.isFinite(fromDate.getTime()) ? fromDate : undefined,
+      to: toDate && Number.isFinite(toDate.getTime()) ? toDate : undefined,
+    });
   }
 
   @Post('audit-logs')
