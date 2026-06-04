@@ -60,6 +60,7 @@ export class R2UploadService implements OnModuleInit {
         Key: key,
         Body: body,
         ContentType: contentType,
+        CacheControl: 'public, max-age=31536000, immutable',
       }),
     );
     return `${this.publicBase}/${key}`;
