@@ -19,9 +19,11 @@ export class TableService {
   ) {}
 
   async findByRestaurant(restaurantId: string): Promise<TableEntity[]> {
-    return this.repo.find({
-      where: { restaurantId },
-      order: { section: 'ASC', name: 'ASC' },
+    const tables = await this.repo.find({ where: { restaurantId } });
+    return tables.sort((a, b) => {
+      const sectionCmp = a.section.localeCompare(b.section, 'tr', { numeric: true, sensitivity: 'base' });
+      if (sectionCmp !== 0) return sectionCmp;
+      return a.name.localeCompare(b.name, 'tr', { numeric: true, sensitivity: 'base' });
     });
   }
 
