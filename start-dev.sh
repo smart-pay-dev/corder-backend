@@ -1,36 +1,36 @@
 #!/usr/bin/env bash
-# Geliştirme ortamında önce PostgreSQL'i, sonra API'yi başlatır.
-# PostgreSQL için Docker gerekir: Docker Desktop'ı açın, sonra bu script'i çalıştırın.
+# Starts PostgreSQL first, then the API, for local development.
+# PostgreSQL requires Docker: start Docker Desktop, then run this script.
 
 set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
-echo "→ CORDER Backend - Geliştirme"
+echo "→ CORDER Backend - Development"
 echo ""
 
-# Port 5432'de PostgreSQL var mı?
+# Is PostgreSQL already listening on port 5432?
 if command -v nc >/dev/null 2>&1; then
   if nc -z localhost 5432 2>/dev/null; then
-    echo "→ PostgreSQL zaten çalışıyor (localhost:5432)."
+    echo "→ PostgreSQL is already running (localhost:5432)."
   else
     if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-      echo "→ PostgreSQL Docker ile başlatılıyor..."
+      echo "→ Starting PostgreSQL with Docker..."
       docker compose -f docker-compose.dev.yml up -d
-      echo "→ Birkaç saniye bekleniyor..."
+      echo "→ Waiting a few seconds..."
       sleep 5
     else
-      echo "HATA: PostgreSQL çalışmıyor ve Docker erişilemiyor."
-      echo "  - Docker Desktop'ı açın"
-      echo "  - Veya yerel PostgreSQL kurun (port 5432, kullanıcı: corder, şifre: corder_secret, DB: corder)"
-      echo "  - Sonra: docker compose -f docker-compose.dev.yml up -d"
+      echo "ERROR: PostgreSQL is not running and Docker is unavailable."
+      echo "  - Open Docker Desktop"
+      echo "  - Or install local PostgreSQL (port 5432, user: corder, password: corder_secret, DB: corder)"
+      echo "  - Then: docker compose -f docker-compose.dev.yml up -d"
       exit 1
     fi
   fi
 else
-  echo "→ (nc yok, PostgreSQL kontrolü atlanıyor; hata alırsanız DB'yi başlatın.)"
+  echo "→ (nc not found, skipping PostgreSQL check; start the DB if you hit errors.)"
 fi
 
-echo "→ Backend başlatılıyor (port 4000)..."
+echo "→ Starting backend (port 4000)..."
 echo ""
 exec pnpm run start:dev

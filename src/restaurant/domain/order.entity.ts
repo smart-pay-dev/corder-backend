@@ -37,7 +37,7 @@ export class OrderEntity {
   @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId: string | null;
 
-  /** Personel listesinde olmayan kullanicilar (root/kasa) icin gorunen ad (userId yaninda UUID cikmasin). */
+  /** Display name for users not in the staff list (root/register) so a raw UUID is not shown next to userId. */
   @Column({ name: 'user_display_name', type: 'varchar', length: 120, nullable: true })
   userDisplayName: string | null;
 
@@ -53,11 +53,11 @@ export class OrderEntity {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  /** Ürün satırı başka masadan taşındıysa kaynak masa adı (yeni adisyon etiketi). */
+  /** Source table name when the product line was moved from another table (new check label). */
   @Column({ name: 'merged_from', type: 'varchar', length: 160, nullable: true })
   mergedFrom: string | null;
 
-  /** Mutfak fişi yazdırıldı (print-agent HTTP ack); null = hâlâ mutfak kuyruğunda sayılır. */
+  /** Kitchen ticket printed (print-agent HTTP ack); null = still counted in the kitchen queue. */
   @Column({ name: 'kitchen_ticket_printed_at', type: 'timestamptz', nullable: true })
   kitchenTicketPrintedAt: Date | null;
 }

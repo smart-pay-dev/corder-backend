@@ -81,7 +81,7 @@ export class MenuQueryService {
     );
     /**
      * Also include all descendants of those categories so subcategories stay in sync
-     * with the parent (a product under an alt kategori was invisible if only the
+     * with the parent (a product under a subcategory was invisible if only the
      * parent had showInMenu and the child did not).
      */
     const visible = new Set(baseVisible);

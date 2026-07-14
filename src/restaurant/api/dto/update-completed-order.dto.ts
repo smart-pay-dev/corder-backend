@@ -2,7 +2,7 @@ import { IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CompletedOrderDto, CompletedPaymentDto } from './create-completed-order.dto';
 
-/** Tamamlanan hesap düzeltmesi — toplamlar sunucuda yeniden hesaplanır. */
+/** Completed check correction — totals are recalculated on the server. */
 export class UpdateCompletedOrderDto {
   @IsArray()
   @ValidateNested({ each: true })

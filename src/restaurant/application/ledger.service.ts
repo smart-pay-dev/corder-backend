@@ -203,7 +203,7 @@ export class LedgerService {
       tableName?: string | null;
       completedOrderId: string;
       snapshot: unknown;
-      /** Panel kullanıcı adı vb.; cari hareket listesinde gosterilir. */
+      /** Panel username etc.; shown on the ledger movement list. */
       recordedBy?: string | null;
     },
   ): Promise<void> {
@@ -229,7 +229,7 @@ export class LedgerService {
     await em.save(LedgerEntryEntity, row);
   }
 
-  /** Tamamlanan siparis disinda, adisyon satirlarindan borc (completed_order_id = null). */
+  /** Debt from check lines outside a completed order (completed_order_id = null). */
   async recordStandaloneDebt(
     em: EntityManager,
     params: {
@@ -265,7 +265,7 @@ export class LedgerService {
     await em.save(LedgerEntryEntity, row);
   }
 
-  /** Adisyon satırı cariden geri alındığında borcu düşüren kayıt (completed_order_id = null). */
+  /** Entry that reduces debt when a check line is taken back from the ledger (completed_order_id = null). */
   async recordStandaloneCredit(
     em: EntityManager,
     params: {
@@ -302,8 +302,8 @@ export class LedgerService {
   }
 
   /**
-   * Tamamlanmamış masadan cari borç kaydında bu order_item id geçen en güncel satırı bulur.
-   * Snapshot `items[].orderItemId` veya eski `items[].id` ile eşleşir.
+   * Finds the latest unfinished table ledger debt entry that references this order_item id.
+   * Matches snapshot `items[].orderItemId` or legacy `items[].id`.
    */
   async findStandaloneDebtEntryForOrderItem(
     em: EntityManager,

@@ -144,7 +144,7 @@ export class CompletedPaymentDto {
 
   @IsOptional()
   @IsUUID()
-  /** Hesap `cari` ile kapatildiginda; tamamlanan islem listesinde gosterim icin. */
+  /** When the check is closed with `cari`; for display on the completed transactions list. */
   ledgerCustomerId?: string;
 
   @IsOptional()
@@ -191,12 +191,12 @@ export class CreateCompletedOrderDto {
 
   @IsOptional()
   @IsUUID()
-  /** Hesap `cari` ile kapatilirken borc yazilacak cari musteri. */
+  /** Ledger customer to record debt against when the check is closed with `cari`. */
   ledgerCustomerId?: string;
 
   @IsOptional()
   @IsNumber()
-  /** Cariye yazilacak borc (karma odemede cari kismi). Verilmezse `ledgerCustomerId` ile tam `netAmount`. */
+  /** Debt amount to write to the ledger (ledger portion of a mixed payment). If omitted, full `netAmount` with `ledgerCustomerId`. */
   ledgerDebtAmount?: number;
 }
 

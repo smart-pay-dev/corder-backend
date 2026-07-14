@@ -33,7 +33,7 @@ export class OrderService {
     private readonly ledgerService: LedgerService,
   ) {}
 
-  /** Sipariş kalemlerine ürünün kategori UUID'sini ekler (print-agent kategori->yazıcı eşlemesi için). */
+  /** Attaches the product category UUID to order items (for print-agent category→printer mapping). */
   private async attachCategoryIdsToItems(
     items: Array<{ productId?: string } & Record<string, unknown>>,
     restaurantId: string,
@@ -58,7 +58,7 @@ export class OrderService {
     }
   }
 
-  /** Fiş / mutfak çıktısında ve masa tutarında sayılan satırlar (iptal ve cariye yazılan hariç). */
+  /** Lines counted on receipts / kitchen tickets and table totals (excludes cancelled and ledger-assigned). */
   private itemOnActiveBill(status: string): boolean {
     return status !== 'cancelled' && status !== 'ledger';
   }
@@ -242,8 +242,8 @@ export class OrderService {
   }
 
   /**
-   * Seçilen sipariş kalemlerini hedef masada yeni bir aktif adisyonda toplar; kaynak satırlar silinir.
-   * Yeni siparişte `mergedFrom` = kaynak masa adı (hangi masadan taşındığı).
+   * Moves selected order items into a new active check on the target table; source lines are removed.
+   * On the new order, `mergedFrom` = source table name (where they were moved from).
    */
   async moveItemsToTable(
     restaurantId: string,
@@ -367,7 +367,7 @@ export class OrderService {
     return serialized;
   }
 
-  /** Hesap kapat: masadaki tüm active siparişleri closed yapar (panel/terminal anlık senkron). */
+  /** Close check: marks all active orders on the table as closed (instant panel/terminal sync). */
   async closeTable(restaurantId: string, tableId: string): Promise<{ closed: number }> {
     const result = await this.orderRepo.update(
       { restaurantId, tableId, status: 'active' },
@@ -385,7 +385,7 @@ export class OrderService {
     return { closed };
   }
 
-  /** Aktif sipariş kalemini iptal eder; panel/kasa senkronu için orders:updated yayınlanır. */
+  /** Cancels an active order item; emits orders:updated for panel/register sync. */
   async cancelOrderItem(
     restaurantId: string,
     itemId: string,
@@ -468,7 +468,7 @@ export class OrderService {
   }
 
   /**
-   * Konsolide kasa fişi: aynı ürün adı + birim fiyat tek satırda toplanır; not alanı düşürülür.
+   * Consolidated register receipt: same product name + unit price collapsed into one line; note field dropped.
    */
   private aggregateConsolidatedReceiptLines(
     lines: Array<{
@@ -513,8 +513,8 @@ export class OrderService {
   }
 
   /**
-   * Masadaki tüm aktif siparişleri tek fişte birleştirir veya elden satış satırlarını doğrudan yollar.
-   * `orderId` ile tek adisyon (notlar dahil). Print-agent WebSocket `order.print_job` ile alır.
+   * Merges all active orders on the table into one receipt, or sends walk-in sale lines directly.
+   * Single check via `orderId` (including notes). Print-agent receives it over WebSocket `order.print_job`.
    */
   async printReceipt(restaurantId: string, dto: PrintReceiptDto): Promise<{ ok: true; jobId: string }> {
     const jobId = randomUUID();
@@ -631,8 +631,8 @@ export class OrderService {
   }
 
   /**
-   * Seçilen adisyon satırlarından (isteğe bağlı adet ile) cari borcu oluşturur.
-   * Tamamı cariye giden satır `ledger` olur; kısmi bölünmede kalan miktar satırda kalır, cari kısım yeni `ledger` satırı olarak eklenir.
+   * Creates a ledger debt from selected check lines (optional quantity).
+   * Fully ledger-assigned lines become `ledger`; on partial split the remainder stays on the line and the ledger portion is added as a new `ledger` line.
    */
   async assignItemsToLedger(
     restaurantId: string,
@@ -768,7 +768,7 @@ export class OrderService {
     return { ok: true, amount: total };
   }
 
-  /** Cariye yazılmış satırı adisyona geri alır; cari borcuna `credit` kaydı düşer. */
+  /** Moves a ledger-assigned line back onto the check; posts a `credit` against the ledger debt. */
   async revertLedgerOrderItem(
     restaurantId: string,
     itemId: string,
@@ -871,7 +871,7 @@ export class OrderService {
     return { ok: true, amount: amountOut };
   }
 
-  /** Print-agent HTTP: WebSocket kaçırsa bile mutfak fişi buradan tamamlanır. */
+  /** Print-agent HTTP: completes the kitchen ticket even if the WebSocket was missed. */
   async findPendingKitchenPrints(restaurantId: string): Promise<Record<string, unknown>[]> {
     const orders = await this.orderRepo.find({
       where: {

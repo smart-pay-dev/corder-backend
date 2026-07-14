@@ -15,7 +15,7 @@ export class TablesController {
     private readonly ordersGateway: OrdersGateway,
   ) {}
 
-  /** Statik rota `GET :id` ile karismasin diye once. */
+  /** Declared first so it is not shadowed by `GET :id`. */
   @Get('presence')
   tablePresence(@RestaurantId() restaurantId: string) {
     return this.service.buildSessionPresenceMap(restaurantId);

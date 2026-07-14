@@ -9,7 +9,7 @@ export class AssignLedgerLineDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  /** Belirtilmezse satirin tamami cariye yazilir. */
+  /** If omitted, the entire line is assigned to the ledger. */
   quantity?: number;
 }
 

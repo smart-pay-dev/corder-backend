@@ -6,7 +6,7 @@ import { RestaurantStaffEntity } from '../domain/restaurant-staff.entity';
 import { CreateTableDto } from '../api/dto/create-table.dto';
 import { UpdateTableDto } from '../api/dto/update-table.dto';
 
-/** Bağlantı koptuğunda eski kilidi otomatik devralmak için (ms). */
+/** Grace period (ms) to automatically take over a stale lock after disconnect. */
 const SESSION_LOCK_STALE_MS = 120_000;
 
 @Injectable()
@@ -48,8 +48,8 @@ export class TableService {
     if (dto.section !== undefined) entity.section = dto.section;
     if (dto.status !== undefined) {
       entity.status = dto.status;
-      // Oturum kilidi yalnızca masa gerçekten bosalinca silinir. Kasa "checkout" / "occupied"
-      // gecisleri garsonu masadan dusurmez; hesap modalı kapaninca diger garsonlar hala kilidi gorur.
+      // Session lock is only cleared when the table is actually vacated. Cash register 'checkout' / 'occupied'
+      // transitions do not drop the waiter from the table; other waiters still see the lock until the check modal closes.
       if (dto.status === 'empty') {
         entity.sessionStaffId = null;
         entity.sessionStaffName = null;
@@ -86,7 +86,7 @@ export class TableService {
     if (!s) throw new BadRequestException('Bu restoran icin gecerli garson bulunamadi');
   }
 
-  /** Siparis / islem: baska garson kilidi varsa (veya kasa checkout) engelle. */
+  /** Order / action: block if another waiter holds the lock (or cash register checkout). */
   assertStaffMayUseTable(table: TableEntity, staffId: string | null | undefined): void {
     if (table.status === 'checkout') {
       throw new BadRequestException('Masa hesap kesiminde');
@@ -102,7 +102,7 @@ export class TableService {
     }
   }
 
-  /** Masa birlestirme: hedef baska garsonda aciksa engelle (stale kilit haric). */
+  /** Table merge: block if the target is open on another waiter (except stale locks). */
   assertTableFreeForMergeOrMove(toTable: TableEntity): void {
     if (toTable.status === 'checkout') {
       throw new BadRequestException('Hedef masa hesap kesiminde');
@@ -116,7 +116,7 @@ export class TableService {
   }
 
   /**
-   * Garson masada — DB kilidi (kasa checkout gibi). Baska garson alamaz; sure dolunca devralinabilir.
+   * Waiter on table — DB lock (like cash register checkout). Another waiter cannot take it; reclaimable after timeout.
    */
   async acquireSessionLock(
     restaurantId: string,

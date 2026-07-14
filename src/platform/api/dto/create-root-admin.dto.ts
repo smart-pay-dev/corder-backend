@@ -15,7 +15,7 @@ export class CreateRootAdminDto {
   @MinLength(8, { message: 'Password must be at least 8 characters' })
   password: string;
 
-  /** Terminal girişi (root admin'den bağımsız; restorana kaydedilir). */
+  /** Terminal login (independent of root admin; stored on the restaurant). */
   @IsOptional()
   @IsEmail()
   terminalEmail?: string;

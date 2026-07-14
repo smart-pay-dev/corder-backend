@@ -51,7 +51,7 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('tables:presence', map);
       return;
     } catch {
-      // JWT değilse statik print-agent token kontrolüne düş.
+      // If not a JWT, fall through to static print-agent token check.
     }
 
     const restaurant = await this.restaurantRepo.findOne({ where: { printAgentToken: token } });
@@ -65,7 +65,7 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(_client: Socket): void {
-    /* Garson kilidi artık DB’de; soket düşünce otomatik kalkmaz (kasadaki checkout gibi). */
+    /* Waiter lock lives in the DB now; it does not clear automatically on socket disconnect (like register checkout). */
   }
 
   async emitTableSessionPresence(restaurantId: string): Promise<void> {
@@ -84,12 +84,12 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(getRestaurantRoom(restaurantId)).emit('orders:moved', payload);
   }
 
-  /** Genel sipariş güncellemesi (hesap kapatma, taşıma, iptal vb.) – tüm client’lar refetch yapar */
+  /** General order update (close check, move, cancel, etc.) – all clients refetch */
   emitOrdersUpdated(restaurantId: string) {
     this.server.to(getRestaurantRoom(restaurantId)).emit('orders:updated');
   }
 
-  /** Fiş / adisyon yazdırma – print-agent `order.print_job` dinler */
+  /** Receipt / check print – print-agent listens on `order.print_job` */
   emitPrintJob(
     restaurantId: string,
     payload: {
@@ -99,12 +99,12 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
       printType: 'receipt' | 'kitchen_cancel';
       createdAt: string;
       receiptMode?: 'consolidated' | 'split';
-      /** Konsolide kasa özetinde false (satır birleştirme, not yok); tekil adisyon / split’te true. */
+      /** false on consolidated register summary (line merge, no notes); true on single check / split. */
       includeLineNotes?: boolean;
       order: {
         tableName: string;
         waiterName: string;
-        /** `kitchen_cancel` fişinde basılır. */
+        /** Printed on `kitchen_cancel` tickets. */
         cancelledBy?: string;
         cancelReason?: string;
         items: {

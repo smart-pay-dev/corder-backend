@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 
-/** Sadece panel kök yöneticisi (JWT `role === 'root'`). */
+/** Panel root admin only (JWT `role === 'root'`). */
 @Injectable()
 export class PanelRootGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {

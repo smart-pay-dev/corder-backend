@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Sunucuda çalıştırılır (GitHub Action SSH ile tetikler).
-# Depo kökü: bu repo (backend tek başına; alt klasörde backend/ yok).
+# Runs on the server (triggered via GitHub Action SSH).
+# Repo root: this repo (backend alone; no backend/ subfolder).
 set -euo pipefail
 
 REPO_ROOT="${DEPLOY_REPO_ROOT:-/opt/corder}"
@@ -10,7 +10,7 @@ export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-corder}"
 cd "$REPO_ROOT"
 
 if [ ! -d .git ]; then
-  echo "HATA: $REPO_ROOT bir git deposu değil."
+  echo "ERROR: $REPO_ROOT is not a git repository."
   exit 1
 fi
 
@@ -19,7 +19,7 @@ git checkout "$BRANCH"
 git reset --hard "origin/$BRANCH"
 
 if [ ! -f .env ]; then
-  echo "HATA: $REPO_ROOT/.env yok. Önce .env.production.example'dan oluşturun."
+  echo "ERROR: $REPO_ROOT/.env is missing. Create it from .env.production.example first."
   exit 1
 fi
 
@@ -28,4 +28,4 @@ docker compose up -d --remove-orphans
 
 docker image prune -f >/dev/null 2>&1 || true
 
-echo "OK: $(date -Iseconds) backend güncel."
+echo "OK: $(date -Iseconds) backend is up to date."

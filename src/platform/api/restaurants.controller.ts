@@ -22,7 +22,7 @@ export class RestaurantsController {
     });
   }
 
-  /** Panelde tanımlanan ürün kategorileri (yazıcı eşlemesi vb. için ID’ler). */
+  /** Product categories defined in the panel (IDs for printer mapping, etc.). */
   @Get(':id/categories')
   async listCategories(@Param('id') id: string) {
     await this.service.findOne(id);

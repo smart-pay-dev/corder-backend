@@ -3,8 +3,8 @@ import { OrderService } from '../application/order.service';
 import { PrintAgentGuard, type PrintAgentRequest } from '../infrastructure/print-agent.guard';
 
 /**
- * Print-agent (Windows) HTTP yedek kanalı: WebSocket kopsa bile mutfak fişi kaçmasın.
- * Kimlik: `Authorization: Bearer` = restoran `print_agent_token`.
+ * Print-agent (Windows) HTTP fallback channel: kitchen tickets must not be lost if WebSocket drops.
+ * Auth: `Authorization: Bearer` = restaurant `print_agent_token`.
  */
 @Controller('restaurant/print-agent')
 @UseGuards(PrintAgentGuard)

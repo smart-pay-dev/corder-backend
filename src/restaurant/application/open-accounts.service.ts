@@ -16,12 +16,12 @@ export interface CreateOpenAccountItemDto {
 export interface CreateOpenAccountDto {
   customerName: string;
   customerPhone?: string;
-  /** Tek tutar (eski) modu icin; `items` varsa bos birakilabilir. */
+  /** For single-amount (legacy) mode; may be empty when `items` is set. */
   amount?: number;
-  /** Hesap / adisyon notu */
+  /** Account / check note */
   description?: string;
   createdBy: string;
-  /** Adisyon satirlari; doluysa `amount` satirlardan hesaplanir. */
+  /** Check lines; when set, `amount` is computed from the lines. */
   items?: CreateOpenAccountItemDto[];
 }
 

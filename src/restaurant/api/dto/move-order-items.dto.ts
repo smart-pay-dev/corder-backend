@@ -16,7 +16,7 @@ export class MoveOrderItemsDto {
   @IsUUID()
   userId?: string;
 
-  /** Islemi yapan kisinin adi (kasa/root personelde yoksa bile gosterim). */
+  /** Name of the person performing the action (display even if not in register/root staff). */
   @IsOptional()
   @IsString()
   @MaxLength(120)

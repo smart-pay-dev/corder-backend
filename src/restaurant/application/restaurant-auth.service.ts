@@ -17,12 +17,12 @@ export type RestaurantUserRole = 'root' | 'mudur' | 'kasiyer' | 'garson';
 export interface RestaurantTokenPayload {
   sub: string;
   restaurantId: string;
-  /** URL-safe; used for R2 /uploads paths. Eski tokenlarda olmayabilir. */
+  /** URL-safe; used for R2 /uploads paths. May be missing on older tokens. */
   slug?: string;
   email: string;
   name: string;
   type: 'restaurant';
-  /** `root` = panel yöneticisi; terminal girişinde `terminal`. Eski JWT’lerde yok. */
+  /** `root` = panel admin; `terminal` on terminal login. Missing on older JWTs. */
   role?: RestaurantUserRole | 'terminal';
 }
 
@@ -44,7 +44,7 @@ export class RestaurantAuthService {
   }> {
     const email = dto.email.toLowerCase().trim();
 
-    // Panel: root admin (e-posta + parola)
+    // Panel: root admin (email + password)
     const admin = await this.rootAdminRepo.findOne({ where: { email }, relations: ['restaurant'] });
     if (admin?.restaurant) {
       if (await bcrypt.compare(dto.password, admin.passwordHash)) {
@@ -69,7 +69,7 @@ export class RestaurantAuthService {
       }
     }
 
-    // Terminal: restoranın kendi girişi (root admin ile ilişkisiz)
+    // Terminal: restaurant's own login (unrelated to root admin)
     const restaurant = await this.restaurantRepo.findOne({ where: { terminalEmail: email } });
     if (restaurant?.terminalPasswordHash && (await bcrypt.compare(dto.password, restaurant.terminalPasswordHash))) {
       const payload: RestaurantTokenPayload = {

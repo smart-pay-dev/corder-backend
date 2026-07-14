@@ -1,4 +1,4 @@
-# Push → SSH ile git pull + docker compose (tek repo: kök = backend)
+# On push → SSH git pull + docker compose (single repo: root = backend)
 name: Deploy backend
 
 on:

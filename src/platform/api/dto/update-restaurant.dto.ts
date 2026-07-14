@@ -51,7 +51,7 @@ export class UpdateRestaurantDto {
   @IsIn(['active', 'inactive'])
   status?: 'active' | 'inactive';
 
-  /** Terminal girişi (root admin'den bağımsız). */
+  /** Terminal login (independent of root admin). */
   @IsOptional()
   @IsEmail()
   terminalEmail?: string | null;

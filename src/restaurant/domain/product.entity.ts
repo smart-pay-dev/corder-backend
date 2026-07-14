@@ -40,7 +40,7 @@ export class ProductEntity {
   @Column({ default: 0 })
   order: number;
 
-  /** Urun basina malzeme tuketimi (stok dusumu); { materialId, quantity }[] */
+  /** Per-product material usage (stock deduction); { materialId, quantity }[] */
   @Column({ type: 'jsonb', nullable: true })
   ingredients: { materialId: string; quantity: number }[] | null;
 

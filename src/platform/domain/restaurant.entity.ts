@@ -52,14 +52,14 @@ export class RestaurantEntity {
   @Column({ name: 'root_admin_id', type: 'uuid', nullable: true })
   rootAdminId: string | null;
 
-  /** Terminal girişi (root admin'den bağımsız; restoran bazında tek). */
+  /** Terminal login (independent of root admin; one per restaurant). */
   @Column({ name: 'terminal_email', type: 'varchar', nullable: true })
   terminalEmail: string | null;
 
   @Column({ name: 'terminal_password_hash', type: 'varchar', nullable: true })
   terminalPasswordHash: string | null;
 
-  /** Print-agent için restoran bazlı statik token (Socket.IO auth). */
+  /** Restaurant-scoped static token for print-agent (Socket.IO auth). */
   @Column({ name: 'print_agent_token', type: 'varchar', length: 128, nullable: true })
   printAgentToken: string | null;
 

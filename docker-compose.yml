@@ -1,5 +1,5 @@
-# Üretim: yalnızca API dışarı açılır. PostgreSQL yalnızca Docker ağı içinde (5432 host’ta yok).
-# Yerelde DB’ye host’tan bağlanmak için: docker compose -f docker-compose.dev.yml up -d
+# Production: only the API is exposed. PostgreSQL stays on the Docker network only (no host port 5432).
+# To connect to the DB from the host locally: docker compose -f docker-compose.dev.yml up -d
 
 services:
   api:

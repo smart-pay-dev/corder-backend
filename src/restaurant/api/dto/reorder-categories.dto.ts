@@ -6,7 +6,7 @@ export class ReorderCategoriesDto {
   @IsUUID(undefined, { each: true })
   ids: string[];
 
-  /** Bos veya gonderilmezse ilk kategorinin parent_id degeri kullanilir (geriye uyum). */
+  /** If empty or omitted, uses the first category's parent_id (backward compatibility). */
   @IsOptional()
   @ValidateIf((_, v) => v != null && v !== '')
   @IsUUID()

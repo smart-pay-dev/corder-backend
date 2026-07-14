@@ -31,7 +31,7 @@ export class TableEntity {
   @Column({ default: 'empty' })
   status: string;
 
-  /** Garson terminalde bu masada işlemde — kasadaki checkout gibi kalıcı; diğer garson API ile giremez. */
+  /** Waiter is working this table on the terminal — persistent like register checkout; other waiters cannot enter via API. */
   @Column({ name: 'session_staff_id', type: 'uuid', nullable: true })
   sessionStaffId: string | null;
 

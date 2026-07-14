@@ -17,7 +17,7 @@ export class PrintReceiptLineDto {
   @IsString()
   note?: string;
 
-  /** Ürün ID — sunucu kategori UUID ekler (print-agent kategori→yazıcı). */
+  /** Product ID — server attaches category UUID (print-agent category→printer). */
   @IsOptional()
   @IsUUID()
   productId?: string;
@@ -27,9 +27,9 @@ export class PrintReceiptLineDto {
   categoryId?: string;
 }
 
-/** Masa fişi: `tableId` ile sunucu birleştirir. Elden satış vb.: `tableId` yoksa `tableName` + `items` + `total` zorunlu. */
+/** Table receipt: server merges via `tableId`. Walk-in sale etc.: if no `tableId`, `tableName` + `items` + `total` are required. */
 export class PrintReceiptDto {
-  /** Tek sipariş (adisyon) fişi — notlar dahil; tamamlanmış siparişlerde de kullanılabilir. */
+  /** Single order (check) receipt — includes notes; can also be used for completed orders. */
   @IsOptional()
   @IsUUID()
   orderId?: string;
@@ -58,8 +58,8 @@ export class PrintReceiptDto {
   total?: number;
 
   /**
-   * `consolidated` = yönetim paneli kasa fişi (tek yazıcı, MANAGEMENT_RECEIPT_PRINTER).
-   * `split` = terminal / kategori bazlı adisyon (PRINT_CATEGORY_ROUTES). Varsayılan: split.
+   * `consolidated` = management panel register receipt (single printer, MANAGEMENT_RECEIPT_PRINTER).
+   * `split` = terminal / category-based check (PRINT_CATEGORY_ROUTES). Default: split.
    */
   @IsOptional()
   @IsIn(['consolidated', 'split'])

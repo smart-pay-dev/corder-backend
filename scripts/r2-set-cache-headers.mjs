@@ -1,14 +1,14 @@
 /**
- * Mevcut R2 nesnelerinin Cache-Control header'ını günceller.
+ * Updates the Cache-Control header on existing R2 objects.
  *
- * Kullanım:
+ * Usage:
  *   node scripts/r2-set-cache-headers.mjs
  *
- * Ortam değişkenleri (ya .env'den ya da export ile set edin):
+ * Environment variables (set via .env or export):
  *   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY,
  *   R2_BUCKET_NAME, R2_PUBLIC_BASE_URL
  *
- * İpucu: .env dosyanız varsa şöyle çalıştırın:
+ * Tip: if you have a .env file, run it like this:
  *   node --env-file=.env scripts/r2-set-cache-headers.mjs
  */
 
@@ -24,7 +24,7 @@ const {
 } = process.env
 
 if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET_NAME) {
-  console.error('Eksik ortam değişkeni: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME gerekli.')
+  console.error('Missing environment variable: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME are required.')
   process.exit(1)
 }
 
@@ -75,10 +75,10 @@ async function updateCacheHeader(key) {
 
 async function main() {
   console.log(`Bucket: ${R2_BUCKET_NAME}`)
-  console.log('Nesneler listeleniyor...')
+  console.log('Listing objects...')
 
   const keys = await listAllKeys()
-  console.log(`Toplam ${keys.length} nesne bulundu.\n`)
+  console.log(`Found ${keys.length} object(s).\n`)
 
   let updated = 0
   let skipped = 0
@@ -91,15 +91,15 @@ async function main() {
       console.log('✓')
       updated++
     } catch (err) {
-      console.log(`HATA: ${err.message}`)
+      console.log(`ERROR: ${err.message}`)
       failed++
     }
   }
 
-  console.log(`\nTamamlandı: ${updated} güncellendi, ${skipped} atlandı, ${failed} hata.`)
+  console.log(`\nDone: ${updated} updated, ${skipped} skipped, ${failed} failed.`)
 }
 
 main().catch((err) => {
-  console.error('Beklenmedik hata:', err)
+  console.error('Unexpected error:', err)
   process.exit(1)
 })
